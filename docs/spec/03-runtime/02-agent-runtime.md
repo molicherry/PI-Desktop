@@ -890,6 +890,9 @@ the mode's core set plus any deferred tools that can be restored from successful
 activation evidence still present in the effective session context:
 
 - Agent: `Read`, `Bash`, `Edit`, and `Write` (matching pi's coding-agent core)
+- Agent: `Skill` whenever the skill catalog is non-empty (D404, ADR 0230) — the
+  `# Skills` section and a user-typed `/skill-id` both ask the model to call
+  it, and a tool that is missing from the schema cannot be called at all
 - Agent: `Task`, `TaskWait`, `TaskList`, and `TaskStop` as well, whenever the
   subagent catalog is non-empty (§5f) — a capability the model has to go
   looking for is one it will not use, and the delegation lifecycle is worth
@@ -897,7 +900,7 @@ activation evidence still present in the effective session context:
 - Plan: `Read`, `Glob`, `Grep`, `BrowserPreview`, and `Bash`
 - both modes: `ToolSearch` when at least one deferred capability exists
 
-In Agent mode, `Glob` and `Grep` join `BrowserPreview`, plugin tools, `Skill`,
+In Agent mode, `Glob` and `Grep` join `BrowserPreview`, plugin tools,
 and plugin-development helpers in the deferred set. Both contract modes keep
 their read/inspection core available, while the kind's submit tool
 (`SubmitPlan` or `SubmitGoal`) is exposed only during the planning state, and

@@ -47,14 +47,16 @@ Let the agent get things done, but stay under control by default.
 
 Following pi's coding-agent default, the first Agent request activates only
 `Read`, `Bash`, `Edit`, and `Write`; `Glob` and `Grep` are loaded on demand.
-Plan and Goal keep their read/inspection core. The runtime also registers capabilities
-without sending their full schemas up front:
+Plan and Goal keep their read/inspection core. `Skill` is deliberately not
+deferred: a `/skill-id` invocation instructs the model to call it, and a tool
+absent from the schema cannot be called at all, so it ships with the first
+request whenever the skill catalog is non-empty (D404, ADR 0230). The runtime
+also registers capabilities without sending their full schemas up front:
 
 - `Glob` and `Grep` in Agent mode
 - `BrowserPreview`
 - `PluginCheck`, `PluginScaffold`, and `PluginPack`
 - plugin-declared agent tools
-- `Skill` when an enabled plugin contributes skills
 
 These tools appear in a bounded `# On-demand tools` catalog with compact
 descriptions. The model calls the local `ToolSearch` tool with an exact name or
