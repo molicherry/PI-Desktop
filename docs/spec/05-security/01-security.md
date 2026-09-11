@@ -155,7 +155,7 @@ replace an artifact.
   fails closed; automatic failures stay ambient and explicit checks expose the
   error.
 - Unsigned macOS distributions keep a narrow first-launch fallback for trusted
-  sources. The DMG exposes only a text note named `如果打不开请看.txt`; it gives
+  sources. The DMG exposes only a text note named `If app won't open, read this.txt`; it gives
   the manual `com.apple.quarantine` command and says signed/notarized builds do
   not need it. The ZIP package also includes the executable helper, which
   searches only `/Applications/PI-Desktop.app` and `~/Applications/PI-Desktop.app`,

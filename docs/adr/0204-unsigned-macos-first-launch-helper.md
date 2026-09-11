@@ -48,7 +48,7 @@ single attribute that causes this launch failure.
 ## Amendment (D406 / ADR 0232)
 
 The DMG-specific helper placement is replaced. DMGs now expose only the
-opening-help note, displayed as `如果打不开请看.txt`; the executable helper
+opening-help note, displayed as `If app won't open, read this.txt`; the executable helper
 remains in the macOS ZIP package. The note is the DMG fallback and no longer
 describes a helper that is present in the DMG.
 

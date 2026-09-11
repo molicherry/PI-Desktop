@@ -218,7 +218,7 @@ The DMG uses a branded 720×500 background with a clear drag-to-Applications
 gesture. The app and Applications link occupy the main row; the first-launch
 opening note sits in a secondary row so the unsigned-build path is discoverable
 without making it the normal installation action. The note is displayed as
-`如果打不开请看.txt`; the DMG does not include the executable command helper.
+`If app won't open, read this.txt`; the DMG does not include the executable command helper.
 
 Every macOS DMG includes the companion
 `PI-Desktop-macOS-opening-help.txt` at the package root under that display

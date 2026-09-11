@@ -150,7 +150,7 @@ CDP 插件工具在 Plan 中仍被拒绝）。 Bash 在 Plan 中仍然可用：�
   关闭失败；自动故障保持在环境状态，显式检查会暴露
   错误。
 - 未签名 macOS 分发包为可信来源保留范围明确的首次启动兜底路径。DMG 只展示名为
-  `如果打不开请看.txt` 的文本说明，其中给出手动的 `com.apple.quarantine` 命令，并说明
+  `If app won't open, read this.txt` 的文本说明，其中给出手动的 `com.apple.quarantine` 命令，并说明
   已签名/公证版本无需执行。ZIP 安装包还包含可执行助手：它只搜索
   `/Applications/PI-Desktop.app` 和 `~/Applications/PI-Desktop.app`，并在删除前先校验
   `CFBundleIdentifier=com.pi-desktop.app`，再删除唯一的 `com.apple.quarantine` 属性并
