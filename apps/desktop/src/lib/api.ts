@@ -467,6 +467,11 @@ export const api = {
     invoke<{ workspace: ProjectWorkspace | null; canceled?: boolean }>(
       IPC.invoke.projectOpen,
     ),
+  cloneProject: (url: string) =>
+    invoke<{ workspace: ProjectWorkspace | null; canceled?: boolean }>(
+      IPC.invoke.projectClone,
+      { url },
+    ),
   pickFiles: () =>
     invoke<{ token: string | null; canceled?: boolean }>(IPC.invoke.composerPickFiles),
   getDroppedFilePath: (file: File) =>

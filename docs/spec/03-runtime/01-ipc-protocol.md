@@ -52,6 +52,7 @@ Examples:
 - `pi-desktop/session/list`
 - `pi-desktop/session/summarizeTitle`
 - `pi-desktop/project/open`
+- `pi-desktop/project/clone`
 - `pi-desktop/project/openFolder`
 - `pi-desktop/session/getScratchPath`
 - `pi-desktop/session/openScratchPath`
@@ -1013,6 +1014,8 @@ authorization code. `accountLabel` is a display string.
 ## 9. Project API
 
 - `project/open()`: system directory picker
+- `project/clone({ url })`: pick a parent directory, `git clone` the URL into
+  it, and return the cloned workspace (the renderer then activates it)
 - `project/openFolder(path)`: open a known project directory in the system file
   manager
 - `project/get()`: current workspace

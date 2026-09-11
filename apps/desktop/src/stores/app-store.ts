@@ -940,6 +940,7 @@ export type AppState = {
   ) => Promise<ReviewRollbackResult | null>;
   abort: () => Promise<void>;
   openProject: () => Promise<void>;
+  cloneProject: (url: string) => Promise<ProjectWorkspace | null>;
   /** Re-read the active workspace metadata without changing the visible project. */
   refreshProject: (path: string) => Promise<ProjectWorkspace | null>;
   activateProject: (
@@ -2975,6 +2976,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistCurrentSidebar(get);
   },
   closeProject: async (path) => get().closeProjectPath(path),
+
+  cloneProject: async (url) => {
+    const intent = beginNavigationIntent();
+    const result = await api.cloneProject(url);
+    if (!navigationIntentIsCurrent(intent)) return null;
+    if (result.canceled || !result.workspace?.path) return null;
+    return get().activateProject(result.workspace.path, { navigationIntent: intent });
+  },
 
   openProject: async () => {
     const intent = beginNavigationIntent();

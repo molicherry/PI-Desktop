@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { listInstalledFonts } from "./system-fonts";
+import { cloneGitRepository } from "./git-clone";
 import {
   applyNetworkProxyFromAppSettings,
   currentNetworkProxy,
@@ -7311,6 +7312,27 @@ function registerIpc() {
     })) as { workspace: { path: string; name: string } | null };
     setCurrentWorkspacePath(res.workspace?.path ?? result.filePaths[0]);
     return { workspace: await withGitBranch(res.workspace), canceled: false };
+  });
+  handle(IPC.invoke.projectClone, async (input: { url?: string } = {}) => {
+    const parentDefault = currentWorkspacePath()
+      ? dirname(currentWorkspacePath()!)
+      : homedir();
+    const picked = await dialog.showOpenDialog({
+      defaultPath: parentDefault,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (picked.canceled || !picked.filePaths[0]) {
+      return { workspace: null, canceled: true };
+    }
+    const dest = await cloneGitRepository({
+      url: input.url ?? "",
+      parentPath: picked.filePaths[0],
+    });
+    const workspace = await withGitBranch({
+      path: dest,
+      name: dest.split(/[\\/]/).filter(Boolean).at(-1) || dest,
+    });
+    return { workspace, canceled: false };
   });
   handle(IPC.invoke.projectSet, async (path: string) => {
     if (!host) throw new Error("host unavailable");
