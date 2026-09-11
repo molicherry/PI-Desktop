@@ -18,6 +18,7 @@ import {
   IconCheck,
   IconChevronLeft,
   IconFolder,
+  IconNewProject,
   IconSearch,
 } from "./icons";
 import { AnchoredMenu } from "./settings/AnchoredMenu";
@@ -38,6 +39,7 @@ export function HomeProjectSwitcher({
   const projectSort = useAppStore((state) => state.projectSort);
   const activeProjectPath = useAppStore((state) => state.activeProjectPath);
   const newSession = useAppStore((state) => state.newSession);
+  const openProject = useAppStore((state) => state.openProject);
   const cloneProject = useAppStore((state) => state.cloneProject);
   const showToast = useAppStore((state) => state.showToast);
 
@@ -120,6 +122,27 @@ export function HomeProjectSwitcher({
       setBusy(false);
     }
   }, [busy, cloneProject, cloneTarget, close, newSession, reportError]);
+
+  const pickFolder = useCallback(async () => {
+    if (busy) return;
+    close();
+    setBusy(true);
+    try {
+      const previous = normalizeProjectPath(
+        useAppStore.getState().workspace?.path,
+      );
+      await openProject();
+      const nextPath = useAppStore.getState().workspace?.path;
+      const nextKey = normalizeProjectPath(nextPath);
+      if (nextPath && nextKey && nextKey !== previous) {
+        await newSession({ projectPath: nextPath });
+      }
+    } catch (error) {
+      reportError(error);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, close, newSession, openProject, reportError]);
 
   useEffect(() => {
     if (!open) return;
@@ -328,6 +351,18 @@ export function HomeProjectSwitcher({
             <IconBranch size={14} aria-hidden />
             <span className="home-project-switcher-item-name">
               {t("project.clone")}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="home-project-switcher-item"
+            disabled={busy}
+            onClick={() => void pickFolder()}
+          >
+            <IconNewProject size={14} aria-hidden />
+            <span className="home-project-switcher-item-name">
+              {t("project.open")}
             </span>
           </button>
         </>

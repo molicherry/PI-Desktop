@@ -29,8 +29,9 @@ test("home project switcher lists sidebar projects and can clone a git repo", ()
   assert.match(switcher, /cloneProject/);
   assert.match(switcher, /parseGitCloneUrl/);
   assert.match(switcher, /project\.clone/);
+  assert.match(switcher, /project\.open/);
+  assert.match(switcher, /await openProject\(\)/);
   assert.doesNotMatch(switcher, /nav\.newProject/);
-  assert.doesNotMatch(switcher, /await openProject\(\)/);
   assert.match(switcher, /data-testid="home-project-switcher"/);
   assert.match(switcher, /aria-haspopup="menu"/);
   assert.match(switcher, /initialFocus="input"/);

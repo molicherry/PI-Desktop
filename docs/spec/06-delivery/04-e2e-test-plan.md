@@ -10205,15 +10205,17 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
   2. Click the underlined name and inspect the menu.
   3. Search for a sidebar project, select a different one, and inspect the
      hero and sidebar.
-  4. Reopen the menu, choose Clone git project, paste a repository URL, then
+  4. Reopen the menu and choose Open project, then pick a folder or cancel.
+  5. Reopen the menu, choose Clone git project, paste a repository URL, then
      pick a parent folder or cancel.
-  5. Open a temporary empty session and confirm the underline is absent.
+  6. Open a temporary empty session and confirm the underline is absent.
 - **Expected**: The click opens a searchable, fixed switcher of the sidebar's
   open projects instead of the folder picker. Choosing another project
   activates it and lands on that project's empty home (reusing an empty
-  session when one exists). Clone git project asks for a URL, then a folder,
-  runs `git clone`, and opens the cloned project. Temporary and no-session
-  heroes stay without the switcher. Escape and outside click dismiss the menu.
+  session when one exists). Open project still uses the folder picker. Clone
+  git project asks for a URL, then a folder, runs `git clone`, and opens the
+  cloned project. Temporary and no-session heroes stay without the switcher.
+  Escape and outside click dismiss the menu.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`
 - **Acceptance**: Quality (navigation and accessibility)
 - **Milestone**: M5
