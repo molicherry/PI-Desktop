@@ -86,9 +86,7 @@ test("sidebar sessions drag onto project groups and offer a menu fallback", () =
   assert.match(sidebar, /onDragEnd=\{endSessionDrag\}/);
   assert.match(sidebar, /is-dragging/);
   assert.match(sidebar, /onProjectDropTargetOver\(event, entry\)/);
-  assert.match(sidebar, /handleProjectDragOver\(event, entry\.key\)/);
   assert.match(sidebar, /onProjectDropTargetDrop\(event, entry\)/);
-  assert.match(sidebar, /handleProjectDrop\(event, entry\.key\)/);
   assert.match(sidebar, /dropProjectKey === entry\.key \? "is-drop-target" : ""/);
   assert.match(sidebar, /data-action="move-session-to-project"/);
   assert.match(sidebar, /nav\.moveToProject/);
@@ -203,9 +201,8 @@ test("session move and prompt setup share a per-session critical section", () =>
 });
 
 test("drag ordering keeps priority buckets and rejects malformed ranks", () => {
-  assert.match(sidebar, /Boolean\(source\.meta\.archived\)/);
-  assert.match(sidebar, /Boolean\(source\.meta\.pinned\)/);
-  assert.match(sidebar, /const sourceKey = draggingProjectKey/);
+  assert.match(sidebar, /sameProjectReorderBucket\(source\.meta, target\.meta\)/);
+  assert.match(sidebar, /const source = projectEntries\[sourceIndex\]/);
   assert.match(sidebarPreferences, /Number\.isSafeInteger\(value\)/);
   assert.match(sidebarPreferences, /manualOrder\(meta\[ak\]\?\.order\)/);
 });
