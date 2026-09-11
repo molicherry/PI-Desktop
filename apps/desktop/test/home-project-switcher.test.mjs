@@ -28,7 +28,7 @@ test("home project switcher lists sidebar projects and can open another folder",
   assert.match(switcher, /newSession\(\{ projectPath: nextPath \}\)/);
   assert.match(switcher, /nextKey !== previous/);
   assert.match(switcher, /data-switcher-index=\{index\}/);
-  assert.match(switcher, /nav\.newProject/);
+  assert.doesNotMatch(switcher, /nav\.newProject/);
   assert.match(switcher, /project\.open/);
   assert.match(switcher, /await openProject\(\)/);
   assert.match(switcher, /data-testid="home-project-switcher"/);

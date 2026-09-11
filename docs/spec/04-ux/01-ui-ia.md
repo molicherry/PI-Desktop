@@ -283,7 +283,7 @@ shared capability contract:
 | Profile menu | sidebar footer | Settings / Logs / Theme cycle (D041) |
 | Notification inbox | sidebar footer bell | All/Unread views, task failure rows only (successful completions are hidden, D295), mark-all-read and clear actions (D130/D117) |
 | Toasts | events (plugin toast, backend restored, copy) | top-center; 4s default, 8s for errors |
-| Project switcher | empty-home underlined project name | sidebar open projects + search + new/open project |
+| Project switcher | empty-home underlined project name | sidebar open projects + search + open project |
 
 ## 5. Navigation model
 

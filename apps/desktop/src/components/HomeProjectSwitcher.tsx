@@ -254,18 +254,6 @@ export function HomeProjectSwitcher({
       >
         <IconNewProject size={14} aria-hidden />
         <span className="home-project-switcher-item-name">
-          {t("nav.newProject")}
-        </span>
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="home-project-switcher-item"
-        disabled={busy}
-        onClick={() => void pickFolder()}
-      >
-        <IconFolder size={14} aria-hidden />
-        <span className="home-project-switcher-item-name">
           {t("project.open")}
         </span>
       </button>
