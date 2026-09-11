@@ -75,6 +75,8 @@ This log freezes previously open questions into concrete decisions.
 | D400 | Restore deferred tools from effective session context | **Amend D185 / ADR 0048: before each new prompt and after a mode switch, clear the in-memory deferred activation set, then restore names from successful `ToolSearch` results (`addedToolNames`) and successful deferred-tool results in the effective `buildSessionContext` projection. Keep only names still in the current deferred catalog and mode; ignore errors, interrupted or missing-result placeholders, and assistant/user prose. No host permission or workspace boundary changes.** | Clearing activations while retaining their successful transcript markers left the model able to see a capability that was absent from the next provider schema. Reconstructing only from effective successful evidence keeps the provider request coherent without parsing prose or reviving stale or disallowed tools. See ADR 0225 and E2E-008a. |
 | D402 | Long-press project title to reorder | *(amended by D403)* **Amend D399 / D093 / ADR 0227: retained project groups have no visible reorder grip. A 400ms still press on the project title arms a pointer reorder; movement beyond 8px before that delay cancels it so a click still selects and toggles collapse. ArrowUp/ArrowDown on the focused title is the keyboard path; Escape cancels. Persistence, pin/archive buckets, host workspace identity, session ordering, and on-disk directories are unchanged. See ADR 0228 and E2E-253.** | The dedicated grip consumed a leading column and made reorder a second control beside the title that already selects and collapses the group. |
 | D403 | Press-and-move project title reorder | **Amend D402 / D093 / ADR 0228: mouse and pen reorder by pressing the project title and moving 8px; a click with no qualifying movement still selects and toggles collapse. Touch does not start a reorder. An accent insertion line shows before/after placement. ArrowUp/ArrowDown and Escape are unchanged. See ADR 0229 and E2E-253.** | A 400ms still press is a mobile long-press pattern and is slower than ChatGPT-style desktop sidebar lists. |
+| D404 | Skill ships with the Agent core tool set | **Amend D174 / D185 / ADR 0048 / ADR 0219: `Skill` joins the Agent-mode core tool set, so its schema is present on the first provider request whenever the skill catalog is non-empty. It is removed from the deferred catalog and never appears under `# On-demand tools`; the other on-demand capabilities and `ToolSearch` are unchanged, and Plan and Goal still omit the tool entirely. No protocol, storage, permission, or skill-body change. See ADR 0230 and E2E-254.** | A user-typed `/skill-id` and the `# Skills` section both ask the model to call `Skill`, and a tool that is absent from the schema cannot be called at all: the deferred entry added a discovery round trip before any skill body could load (issue #204). |
+| D405 | Ideographic comma opens the slash menu | **Amend D123 / D139 / ADR 0024: a `、` (U+3001) committed as the first character of an empty composer draft is rewritten to `/` before trigger detection, so a Chinese IME reaches the ordinary slash menu without switching input methods. Only that position is rewritten; a `、` anywhere else stays ordinary punctuation, and the `@` file menu is unaffected. Shared grammar and renderer only; no IPC, storage, or autocomplete-source change. See ADR 0231 and E2E-255.** | Reaching `/new`, `/compact`, a mode alias, or a Skill forced a Chinese IME user to switch to ASCII input mid-sentence and then switch back (issue #65). |
 
 
 | D244 | Compact context usage summary | **Amend D103 / D184 / ADR 0047: keep the context inspector's remaining-capacity trigger, used/window counts, turn total, completed-turn speed, exact provider values, aggregate tool types/calls/tokens, and checkpoint summary, but render them as a short summary. Remove the per-tool rows, share bars, source badges, explanatory estimate paragraph, and used-capacity meter from the default panel. No protocol, storage, runtime accounting, or model metadata changes.** *(Amended by D347: the trigger moves to the composer toolbar.)* | The prior diagnostic layout made a routine capacity check tall and visually dense. Keeping the aggregate signal while removing drill-down chrome makes the default status surface scannable without changing the underlying usage data. See ADR 0103 and E2E-060d / US-UI-61. |
@@ -4662,3 +4664,24 @@ D193, and D194.
 - An accent insertion line shows before or after the target group from the
   pointer's vertical midpoint. ArrowUp/ArrowDown and Escape are unchanged.
 - Decision D403 amends D402 / D093 / ADR 0228. See ADR 0229 and E2E-253.
+
+## 2026-09-11 — Skill ships with the Agent core tool set (D404)
+
+- `Skill` joins the Agent-mode core tool set, so its schema is present on the
+  first provider request whenever the skill catalog is non-empty. It is no
+  longer part of the deferred catalog and never appears under `# On-demand
+  tools`.
+- Registration is unchanged: the tool exists only with a non-empty catalog, and
+  Plan and Goal still omit it entirely. Every other on-demand capability and
+  `ToolSearch` itself keep their lazy behavior.
+- Decision D404 amends D174 / D185 / ADR 0048 / ADR 0219. See ADR 0230 and
+  E2E-254.
+
+## 2026-09-11 — Ideographic comma opens the slash menu (D405)
+
+- A `、` committed as the first character of an empty composer draft is
+  rewritten to `/` before trigger detection runs, so a Chinese IME reaches the
+  ordinary slash menu without switching input methods.
+- Only that position is rewritten: a `、` anywhere later in the draft stays
+  ordinary punctuation, and the `@` file menu is unaffected.
+- Decision D405 amends D123 / D139 / ADR 0024. See ADR 0231 and E2E-255.

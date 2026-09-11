@@ -486,6 +486,11 @@ const AGENT_CORE_TOOL_NAMES = new Set([
   "Edit",
   "Bash",
   ASK_TOOL_NAME,
+  // The slash menu answers a user-invoked `/skill-id` with an instruction to
+  // call `Skill { id }` on the first turn (ADR 0219), and a capability the
+  // model has to go looking for is one it will not use. Registration keeps its
+  // own gate: the tool only exists when the catalog is non-empty.
+  SKILL_TOOL_NAME,
 ]);
 const MAX_ON_DEMAND_TOOL_PROMPT_ENTRIES = 64;
 const MAX_TOOL_SEARCH_RESULT_NAMES = 24;
@@ -3023,8 +3028,6 @@ Delegation rules:
         return "Create a PI-Desktop plugin from a template.";
       case "PluginPack":
         return "Validate and package a PI-Desktop plugin.";
-      case SKILL_TOOL_NAME:
-        return "Load the full instructions for a listed skill.";
       default:
         return this.compactToolDescription(tool.description);
     }

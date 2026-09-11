@@ -6335,6 +6335,9 @@ Each scenario is documented in this format:
 | Security | E2E-028, E2E-029, E2E-030, E2E-024J, E2E-024K, E2E-024M, E2E-049, E2E-068, E2E-086, E2E-102c, E2E-102d, E2E-102e, E2E-105, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-112, E2E-113, E2E-115, E2E-116, E2E-117, E2E-119, E2E-121, E2E-122, E2E-123, E2E-142, E2E-148, E2E-151, E2E-153, E2E-158, E2E-187, E2E-196c, E2E-196b, E2E-196 |
 | Quality | E2E-032, E2E-033, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-053, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-094, E2E-095, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-103, E2E-AGENTS-001, E2E-021a, E2E-024N, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-111, E2E-114, E2E-117, E2E-118, E2E-119, E2E-120, E2E-122, E2E-123, E2E-142, E2E-143, E2E-144, E2E-145, E2E-146, E2E-147, E2E-148, E2E-150, E2E-151, E2E-153, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-168, E2E-172, E2E-173, E2E-174, E2E-011g, E2E-176, E2E-177, E2E-178, E2E-179, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-196, E2E-201, E2E-204, E2E-202, E2E-203, E2E-205, E2E-206, E2E-207, E2E-208, E2E-209, E2E-210, E2E-218, E2E-219, E2E-250, E2E-252, E2E-102i |
 | Quality (project ordering) | E2E-253 |
+| C — Conversation & stream (IME slash alias) | E2E-255 |
+| E — Tools & permissions (Skill residency) | E2E-254 |
+| Quality (Skill residency and IME slash alias) | E2E-254, E2E-255 |
 
 | Milestone | Scenarios |
 |---|---|
@@ -6344,6 +6347,8 @@ Each scenario is documented in this format:
 | M4 | E2E-022, E2E-023, E2E-024, E2E-025, E2E-026, E2E-030, E2E-038 |
 | M5 | E2E-008a, E2E-032, E2E-033, E2E-034, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-051, E2E-052, E2E-053, E2E-054, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-AGENTS-001, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-094, E2E-095, E2E-143, E2E-145, E2E-146, E2E-146a, E2E-147, E2E-177, E2E-178, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-204, E2E-208, E2E-250, E2E-252, E2E-102i |
 | M5 (project ordering) | E2E-253 |
+| M2 (IME slash alias) | E2E-255 |
+| M5 (Skill residency) | E2E-254 |
 | M6 | E2E-104, E2E-105, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-111, E2E-112, E2E-113, E2E-114, E2E-115, E2E-116, E2E-117, E2E-118, E2E-119, E2E-120, E2E-103, E2E-172 |
 | M6+ | E2E-121, E2E-122, E2E-148, E2E-150, E2E-151, E2E-154, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-166, E2E-168, E2E-173, E2E-174, E2E-176, E2E-179, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-202, E2E-203, E2E-205, E2E-209, E2E-210, E2E-212, E2E-213, E2E-214, E2E-215, E2E-216, E2E-217, E2E-218, E2E-219 |
 | Post-MVP | E2E-022A, E2E-022B, E2E-022C, E2E-024I, E2E-024J, E2E-024K, E2E-024L, E2E-024M (plugin roadmap R2/R3/R6) |
@@ -10122,3 +10127,58 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
 - **Status**: Source-contract covered (`app-store-sidebar.test.mjs`,
   `sidebar-preferences.test.mjs`, `sidebar-project-reorder.test.mjs`);
   rendered desktop journey Draft
+
+#### E2E-254: A skill loads on the first Agent turn
+
+- **Preconditions**: At least one Skill is active for the current project, a
+  provider is configured, and the session runs in Agent mode with another
+  on-demand capability present (for example `BrowserPreview` or a plugin tool).
+- **Steps**:
+  1. Open a new Agent conversation and send a prompt that matches the active
+     Skill's description.
+  2. Inspect the first provider request and its tool list.
+  3. Confirm the model calls `Skill` with the exact id without calling
+     `ToolSearch` first, and that the returned document is the skill body.
+  4. Send `/<skill-id>` from the composer and inspect the following turn.
+  5. Switch the session to Plan mode and inspect the tool list again.
+  6. Disable or remove every Skill and start another Agent turn.
+- **Expected**: Whenever the skill catalog is non-empty, `Skill` ships with the
+  first request and never appears under `# On-demand tools`, so both a matching
+  task and a `/skill-id` invocation load the body without a discovery round
+  trip. `ToolSearch` still exists for the other on-demand capabilities and
+  never returns `Skill`. Plan mode omits the tool and the `# Skills` section,
+  and an empty catalog registers no `Skill` tool at all.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` (§7.1),
+  `03-runtime/03-tools-and-permissions.md` (§2.1),
+  `04-ux/04-builtin-commands.md` (§8), `08-meta/decisions-log.md` (D404),
+  ADR 0048, ADR 0219, ADR 0230
+- **Acceptance**: C (conversation & stream), E (tools & permissions), Quality
+- **Milestone**: M5
+- **Status**: Unit-covered (`packages/agent-runtime/src/runtime.test.ts`);
+  rendered desktop journey Draft
+  (do not run E2E locally unless explicitly requested)
+
+#### E2E-255: An ideographic comma opens the slash menu
+
+- **Preconditions**: A Chinese IME is available, the composer draft is empty,
+  and at least one slash entry exists (builtin alias, template, plugin command,
+  or Skill).
+- **Steps**:
+  1. With the draft empty, type `、` and inspect the composer.
+  2. Continue typing a command name and accept the highlighted row.
+  3. Type a draft that contains `、` between other characters.
+  4. Send a draft whose first character was typed as `、` without accepting any
+     row.
+- **Expected**: The committed `、` is rewritten to `/` in place, the ordinary
+  slash menu opens with the same filtering and keyboard behavior as a typed
+  `/`, and the caret stays after the substituted character. A `、` anywhere
+  later in the draft stays untouched text, and the `@` file menu never reacts
+  to the mark.
+- **Specs linked**: `04-ux/04-builtin-commands.md` (§9),
+  `04-ux/08-component-spec.md` (§11), `08-meta/decisions-log.md` (D405),
+  ADR 0024, ADR 0231
+- **Acceptance**: C (conversation & stream), Localization, Quality
+- **Milestone**: M2
+- **Status**: Unit-covered (`packages/shared/src/composer-trigger.test.ts`,
+  `apps/desktop/test/composer-ime.test.mjs`); rendered desktop journey Draft
+  (do not run E2E locally unless explicitly requested)
