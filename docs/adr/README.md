@@ -247,3 +247,5 @@ Each ADR includes:
 | 0227 | Project group manual ordering | Accepted (amended by 0228) |
 | 0228 | Long-press the project title to reorder | Accepted (amended by 0229) |
 | 0229 | Press-and-move project title reorder | Accepted (amends 0228) |
+| 0230 | Skill ships with the Agent core tool set | Accepted (amends D174 / ADR 0048 / ADR 0219; issue #204) |
+| 0231 | Ideographic comma opens the composer slash menu | Accepted (amends D123 / D139 / ADR 0024; issue #65) |
