@@ -324,7 +324,7 @@ Ubuntu 20.04、Debian 11、Fedora 35 及更旧的发行版无法加载自带的 
 
 带标签发布工作流程默认发布未签名的 macOS 工件。对于可信的未签名安装，将
 `PI-Desktop.app` 移动到 Applications；如果 macOS 提示应用已损坏或应用打不开，打开
-DMG 中的 `如果打不开请看.txt`。macOS ZIP 安装包还附带
+DMG 中的 `If app won't open, read this.txt`。macOS ZIP 安装包还附带
 `PI-Desktop-macOS-open.command`，可用于同一可信来源的兜底处理。手动运行并设置
 `sign_macos: true` 时，工作流会在发布前使用 Developer ID 凭据完成 macOS 工件的签名、
 公证和装订；已签名版本无需使用这两种兜底方式。

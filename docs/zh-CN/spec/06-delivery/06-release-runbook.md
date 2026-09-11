@@ -190,11 +190,11 @@ blockmap），任何无后缀或架构错误的 macOS 工件都会使发布失�
 
 DMG 使用带有品牌视觉的 720×500 背景，并明确展示拖入 Applications 的安装手势。
 应用和 Applications 链接位于主区域；打开说明位于下方的辅助区域，这样未签名构建的
-处理路径可被发现，但不会被误认为正常安装动作。说明显示为 `如果打不开请看.txt`；
+处理路径可被发现，但不会被误认为正常安装动作。说明显示为 `If app won't open, read this.txt`；
 DMG 不包含可执行的 command 助手。
 
 每个 macOS DMG 的安装包根目录都会包含配套的
-`PI-Desktop-macOS-opening-help.txt`，显示名为 `如果打不开请看.txt`。macOS ZIP
+`PI-Desktop-macOS-opening-help.txt`，显示名为 `If app won't open, read this.txt`。macOS ZIP
 还包含该说明和可执行的 `PI-Desktop-macOS-open.command`。将 `PI-Desktop.app` 移动到
 `/Applications` 或 `~/Applications` 后，ZIP 用户可以双击该助手。它只搜索这两个
 固定位置，在存在时递归删除唯一的 `com.apple.quarantine` 属性，然后打开 PI-Desktop。

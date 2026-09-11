@@ -17,7 +17,7 @@ command item beside the normal installation action.
 ## Decision
 
 1. The macOS DMG contains the app, the Applications link, and the opening-help
-   note only. The note is displayed in Finder as `如果打不开请看.txt` and the
+   note only. The note is displayed in Finder as `If app won't open, read this.txt` and the
    executable `PI-Desktop-macOS-open.command` is not included or exposed in the
    DMG contents.
 2. The macOS ZIP package retains both `PI-Desktop-macOS-opening-help.txt` and

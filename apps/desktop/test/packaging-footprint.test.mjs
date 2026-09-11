@@ -224,7 +224,7 @@ test("macOS installers expose DMG guidance and retain the ZIP helper", () => {
       x: 470,
       y: 370,
       type: "file",
-      name: "如果打不开请看.txt",
+      name: "If app won't open, read this.txt",
       path: "PI-Desktop-macOS-opening-help.txt",
     },
   ]);

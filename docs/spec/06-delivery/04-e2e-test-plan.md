@@ -193,7 +193,7 @@ Each scenario is documented in this format:
   ZIP artifacts for at least one native architecture; a test macOS account can
   copy an app into `/Applications` or `~/Applications`.
 - **Steps**: 1) Open the DMG and inspect its root and layout. 2) Confirm the
-  app and Applications link form the main row, and `如果打不开请看.txt` is the
+  app and Applications link form the main row, and `If app won't open, read this.txt` is the
   only secondary item. 3) Confirm the DMG has no command helper. 4) Inspect
   the ZIP root without extracting the application contents and confirm it has
   both `PI-Desktop-macOS-opening-help.txt` and the executable
@@ -201,7 +201,7 @@ Each scenario is documented in this format:
   `/Applications`, and double-click the ZIP helper.
 - **Expected**: The DMG contains the branded 720×500 background, the app,
   Applications link, and the text-only opening note displayed as
-  `如果打不开请看.txt`; it does not contain or expose the command helper. The
+  `If app won't open, read this.txt`; it does not contain or expose the command helper. The
   ZIP contains the helper and the same note at its root. The note includes
   `xattr -r -d com.apple.quarantine /Applications/PI-Desktop.app`, explains
   that the fallback is only for a trusted unsigned artifact when macOS reports
