@@ -56,3 +56,25 @@ test("model menu keydown ignores IME composition keystrokes", () => {
     "menu navigation must bail out while an IME composition is active",
   );
 });
+
+test("an ideographic comma opens the slash menu from an empty draft (D405)", () => {
+  const handler = composerSource.slice(
+    composerSource.indexOf("onInput={(e) => {"),
+    composerSource.indexOf("onCompositionStart={() => setComposing(true)}"),
+  );
+  assert.match(
+    handler,
+    /rewriteIdeographicCommaTrigger\(/,
+    "the editable must route a committed 、 through the shared rewrite",
+  );
+  assert.match(
+    handler,
+    /valueRef\.current === ""/,
+    "only a draft with nothing in it may be rewritten",
+  );
+  assert.match(
+    handler,
+    /pendingEditorCaretRef\.current = start/,
+    "the caret must land after the substituted slash",
+  );
+});

@@ -25,6 +25,7 @@ import {
   normalizeLargePasteThreshold,
   PERMISSION_MODES,
   restoreInlineComposerFileReferenceTokens,
+  rewriteIdeographicCommaTrigger,
   serializeComposerFileReferences,
   serializeInlineComposerFileReferences,
   stripInlineComposerFileReferenceTokens,
@@ -2337,10 +2338,26 @@ export function Composer({
                 }}
                 onInput={(e) => {
                   const el = e.currentTarget;
-                  const nextValue = readEditorValue(el);
+                  const source = readEditorValue(el);
                   const { start } = editorSelectionRange(el);
+                  // A Chinese IME commits "、" where an ASCII "/" is meant, and
+                  // a leading "/" is what makes the slash menu reachable
+                  // without switching input methods (D405). Only the first
+                  // character of a draft that was empty is rewritten, so the
+                  // mark stays ordinary punctuation anywhere else.
+                  const nextValue =
+                    valueRef.current === ""
+                      ? rewriteIdeographicCommaTrigger(source)
+                      : source;
                   invalidatePromptEnhancement();
-                  editorValueRef.current = nextValue;
+                  if (nextValue === source) {
+                    editorValueRef.current = nextValue;
+                  } else {
+                    // Leave editorValueRef stale so the layout effect repaints
+                    // the editable with the substituted "/" and puts the caret
+                    // back after it.
+                    pendingEditorCaretRef.current = start;
+                  }
                   valueRef.current = nextValue;
                   setValue(nextValue);
                   // `filter` allocates even when it drops nothing, and a new
