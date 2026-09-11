@@ -1077,7 +1077,11 @@ Each scenario is documented in this format:
   in B, then return to A before either run completes. 5) Choose Send now on A's
   remaining queued row. 6) Observe A through the current tool/reply boundary
   and then the next turn. 7) Start another run in A, clear the draft to expose
-  the single Stop button, press Stop, and inspect the queue.
+  the single Stop button, press Stop, and inspect the queue. 8) Repeat with
+  two queued prompts, let the active turn finish without Send now, and delay
+  its host `session.endTurn` response until after `agent_end` is delivered.
+  Release finalization and observe both follow-ups through their turn
+  boundaries. Repeat with a provider error and an immediate abort.
 - **Expected**: The single submit slot contains exactly one button in every
   state: disabled Send while idle and empty, enabled Send while running with
   content (which queues the prompt), and Stop while running with an empty
@@ -1086,13 +1090,21 @@ Each scenario is documented in this format:
   current batch completes with a normal `agent_end`/completed turn, then the
   selected row starts before any remaining FIFO rows without `AGENT_BUSY`.
   Immediate Stop aborts the current reply and preserves A's queued row;
-  switching sessions preserves both queues.
+  switching sessions preserves both queues. Ordinary completion, provider
+  failure, and abort all resume queued sending automatically after durable
+  finalization releases the session. No queued prompt starts while finalization
+  is pending; each subsequent turn starts once in FIFO order, without another
+  click or session switch. Repeated terminal handling does not double-dispatch.
+  Other sessions' queues remain unchanged, and quitting while finalization is
+  pending preserves queued work without starting another turn.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.2),
   `04-ux/08-component-spec.md` (§11),
-  `04-ux/09-interaction-patterns.md` (§3.4), ADR 0118
+  `04-ux/09-interaction-patterns.md` (§3.4), ADR 0118, ADR 0213
 - **Acceptance**: C (chat, stream, and session isolation), Quality
 - **Milestone**: M6+
-- **Status**: Source-level regression covered; full UI scenario Draft
+- **Status**: Source-level regression and deterministic desktop finalization /
+  Agent Host integration covered (`queued-turn-finalization.test.mjs`); full
+  UI scenario Draft
 
 #### E2E-011g: New Task does not leave the previous transcript on screen
 
