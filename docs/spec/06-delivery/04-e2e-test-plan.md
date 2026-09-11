@@ -187,29 +187,31 @@ Each scenario is documented in this format:
 - **Milestone**: M6+
 - **Status**: Active default; this scenario does not satisfy E2E-196c.
 
-#### E2E-196b: Unsigned macOS packages include a first-launch helper
+#### E2E-196b: Unsigned macOS packages expose first-launch guidance
 
 - **Preconditions**: A default unsigned macOS release has produced both DMG and
   ZIP artifacts for at least one native architecture; a test macOS account can
   copy an app into `/Applications` or `~/Applications`.
 - **Steps**: 1) Open the DMG and inspect its root and layout. 2) Confirm the
-  app and Applications link form the main row, and the opening helper and note
-  are visible in the secondary row. 3) Inspect the ZIP root without extracting
-  the application contents. 4) Read `PI-Desktop-macOS-opening-help.txt` and
-  inspect the executable mode and contents of `PI-Desktop-macOS-open.command`.
-  5) Move the app to `/Applications`, then double-click the helper.
-- **Expected**: Both packages contain the executable helper and the same
-  opening-help file at the package root. The DMG uses the branded 720×500
-  background and the helper is clearly labeled as a first-launch action. The
-  note includes `xattr -r -d com.apple.quarantine /Applications/PI-Desktop.app`,
-  explains that the helper is for a trusted unsigned artifact when macOS
-  reports that the app is damaged, and says signed/notarized builds do not need
-  it. The helper searches only `/Applications/PI-Desktop.app` and
+  app and Applications link form the main row, and `如果打不开请看.txt` is the
+  only secondary item. 3) Confirm the DMG has no command helper. 4) Inspect
+  the ZIP root without extracting the application contents and confirm it has
+  both `PI-Desktop-macOS-opening-help.txt` and the executable
+  `PI-Desktop-macOS-open.command`. 5) Read the note, move the app to
+  `/Applications`, and double-click the ZIP helper.
+- **Expected**: The DMG contains the branded 720×500 background, the app,
+  Applications link, and the text-only opening note displayed as
+  `如果打不开请看.txt`; it does not contain or expose the command helper. The
+  ZIP contains the helper and the same note at its root. The note includes
+  `xattr -r -d com.apple.quarantine /Applications/PI-Desktop.app`, explains
+  that the fallback is only for a trusted unsigned artifact when macOS reports
+  that the app is damaged or does not open, and says signed/notarized builds do
+  not need it. The ZIP helper searches only `/Applications/PI-Desktop.app` and
   `~/Applications/PI-Desktop.app`, removes only `com.apple.quarantine` when
-  present, and opens the app without `sudo` or an arbitrary path argument. The
-  helper validates `CFBundleIdentifier=com.pi-desktop.app` before changing
-  attributes. The guidance does not claim that an unsigned artifact has passed
-  Gatekeeper qualification.
+  present, and opens the app without `sudo` or an arbitrary path argument. It
+  validates `CFBundleIdentifier=com.pi-desktop.app` before changing attributes.
+  The guidance does not claim that an unsigned artifact has passed Gatekeeper
+  qualification.
 - **Specs linked**: `06-delivery/06-release-runbook.md`,
   `05-security/01-security.md`
 - **Acceptance**: Quality, Security

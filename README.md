@@ -327,11 +327,13 @@ Ubuntu 20.04, Debian 11, Fedora 35, and older releases cannot load the bundled h
 ### macOS
 
 The tagged-release workflow publishes unsigned macOS artifacts by default. For
-a trusted unsigned install, move `PI-Desktop.app` to Applications and
-double-click `PI-Desktop-macOS-open.command` if macOS says the app is damaged.
-A manually dispatched run with `sign_macos: true` signs, notarizes, and staples
-macOS artifacts with Developer ID credentials before publication; signed builds
-do not need the helper.
+a trusted unsigned install, move `PI-Desktop.app` to Applications and open
+`如果打不开请看.txt` from the DMG if macOS says the app is damaged or the app
+does not open. The macOS ZIP package also includes
+`PI-Desktop-macOS-open.command` for the same trusted-source fallback. A manually
+dispatched run with `sign_macos: true` signs, notarizes, and staples macOS
+artifacts with Developer ID credentials before publication; signed builds do
+not need either fallback.
 
 ---
 
