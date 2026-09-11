@@ -179,17 +179,10 @@
           "path": "/Applications"
         },
         {
-          "x": 250,
-          "y": 370,
-          "type": "file",
-          "name": "Open PI-Desktop.command",
-          "path": "PI-Desktop-macOS-open.command"
-        },
-        {
           "x": 470,
           "y": 370,
           "type": "file",
-          "name": "Read me first.txt",
+          "name": "如果打不开请看.txt",
           "path": "PI-Desktop-macOS-opening-help.txt"
         }
       ]
