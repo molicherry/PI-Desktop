@@ -1,4 +1,4 @@
-# ADR 0233: Host turn-end event for plugins
+# ADR 0235: Host turn-end event for plugins
 
 - Status: Accepted
 - Date: 2026-09-12

@@ -82,8 +82,8 @@ accept_prompt
 回合改述为已完成。终止事件按回合身份归属，而不是按会话：某个终止事件
 所属的回合若已不再拥有该会话，它既不改变当前回合的状态，也不释放其资源，
 迟到的消息行和工具行仍作为历史记录。宿主在每次已开始的回合中通过
-`session:turnEnded` 插件事件宣告一次终止状态（见 ADR 0233，
-`docs/adr/0233-plugin-host-turn-end-event.md`）。
+`session:turnEnded` 插件事件宣告一次终止状态（见 ADR 0235，
+`docs/adr/0235-plugin-host-turn-end-event.md`）。
 
 ## 3. 转换规则
 

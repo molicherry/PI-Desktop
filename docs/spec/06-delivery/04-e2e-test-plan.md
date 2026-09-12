@@ -10262,5 +10262,5 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
   Step 5 shows no new permission review, and subscribing to an unknown event
   name does not surface an error.
 - **Specs linked**: `07-plugins/03-plugin-api.md`, `07-plugins/13-plugin-permissions-matrix.md`,
-  ADR 0233
+  ADR 0235
 - **Acceptance**: Quality (protocol and plugin contract)

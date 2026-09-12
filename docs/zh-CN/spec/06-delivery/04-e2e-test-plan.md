@@ -6567,7 +6567,7 @@ IPC 请求无法关闭。
   4. 再发一条会失败的提示，使回合以错误结束。
   5. 在插件设置页检查是否出现新的权限复核。
 - **预期**：步骤 2 只收到一次 `session:turnEnded`，`reason` 为 `completed`，且其 `turnId` 与工具上下文的 `turnId` 相同。步骤 3 只收到一次事件且 `reason` 为 `aborted` —— 中止之后不会再出现第二次 `completed`。步骤 4 只收到一次事件且 `reason` 为 `error`。从未开始的回合不产生事件；即使终态事件到达多次，任何插件也不会在同一回合收到两次事件。步骤 5 不出现新的权限复核，订阅未知事件名也不会报错。
-- **链接规格**：`07-plugins/03-plugin-api.md`、`07-plugins/13-plugin-permissions-matrix.md`、ADR 0233
+- **链接规格**：`07-plugins/03-plugin-api.md`、`07-plugins/13-plugin-permissions-matrix.md`、ADR 0235
 - **验收**：品质（协议与插件契约）
 - **状态**：源码契约覆盖（`apps/desktop/test/session-turn-ended.test.mjs`）；渲染桌面旅程为草稿（除非明确要求，不本地运行 E2E）
 

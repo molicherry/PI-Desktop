@@ -81,8 +81,8 @@ Terminal events are attributed by turn identity, not by session: a terminal
 event whose turn no longer owns the session changes neither the current turn's
 state nor its resources, and late message and tool rows are still recorded as
 history. The host announces the terminal state once per started turn through
-the `session:turnEnded` plugin event (see ADR 0233,
-`docs/adr/0233-plugin-host-turn-end-event.md`).
+the `session:turnEnded` plugin event (see ADR 0235,
+`docs/adr/0235-plugin-host-turn-end-event.md`).
 
 ## 3. Transition rules
 
