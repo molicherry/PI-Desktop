@@ -24,7 +24,9 @@ const transpile = (source) =>
 const helpersStart = main.indexOf("function turnKey(");
 const helpersEnd = main.indexOf("function announceTurnEnded(", helpersStart);
 const abortStart = main.indexOf("const pendingAbortReasons");
-const abortEnd = main.indexOf("function addActiveTurnUsage(", abortStart);
+// Stop before `activeTurnUsages`: it is module state the fixture supplies, and
+// bringing a second declaration in would shadow the one the assertions inspect.
+const abortEnd = main.indexOf("const activeTurnUsages", abortStart);
 assert.ok(
   helpersStart >= 0 && helpersEnd > helpersStart,
   "turn key helpers must be locatable",
@@ -235,5 +237,20 @@ test("a cancel survives an unattributable terminal event end to end", async () =
   assert.deepEqual(
     f.announcements.map((a) => a.reason),
     ["aborted"],
+  );
+});
+
+// The case above only proves the early return leaves the live turn alone. This
+// one drives the finalizer for the turn that does own the session, so it
+// actually reaches the usage hand-off and fails if the fixture and the function
+// are looking at different maps.
+test("the settled turn's usage is consumed", async () => {
+  const f = fixture();
+  f.context.activeTurnUsages.set("s1", { inputTokens: 7 });
+  await f.finishTurn("s1", "completed", undefined, { turnId: "t1" });
+  assert.equal(
+    f.context.activeTurnUsages.get("s1"),
+    undefined,
+    "the settled turn's usage is cleared",
   );
 });
