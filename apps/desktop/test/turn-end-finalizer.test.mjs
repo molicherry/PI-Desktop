@@ -14,9 +14,30 @@ const main = await readFile(
 const start = main.indexOf("function finishTurn(");
 const end = main.indexOf("async function finishApprovedExecution(", start);
 assert.ok(start >= 0 && end > start, "finishTurn must be locatable");
-const finalizer = ts.transpileModule(main.slice(start, end), {
-  compilerOptions: { target: ts.ScriptTarget.ES2022 },
-}).outputText;
+const transpile = (source) =>
+  ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+// The abort reason lock and the turn-key helpers are module state that the
+// finalizer, the dispatch gate and the persistence path all consult, so they
+// are extracted and executed together with it.
+const helpersStart = main.indexOf("function turnKey(");
+const helpersEnd = main.indexOf("function announceTurnEnded(", helpersStart);
+const abortStart = main.indexOf("const pendingAbortReasons");
+const abortEnd = main.indexOf("function addActiveTurnUsage(", abortStart);
+assert.ok(
+  helpersStart >= 0 && helpersEnd > helpersStart,
+  "turn key helpers must be locatable",
+);
+assert.ok(
+  abortStart >= 0 && abortEnd > abortStart,
+  "the abort reason lock must be locatable",
+);
+const support = transpile(
+  `${main.slice(helpersStart, helpersEnd)}\n${main.slice(abortStart, abortEnd)}`,
+);
+const finalizer = transpile(main.slice(start, end));
+const api = `${support}\n${finalizer}\n;({ finishTurn, takeAbortReason, lockAbortReason })`;
 
 /**
  * The finalizer is a closure over module state, so each case gets its own
@@ -58,9 +79,20 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
       },
     },
   };
-  const finishTurn = runInNewContext(`${finalizer}\nfinishTurn;`, context);
-  assert.equal(typeof finishTurn, "function");
-  return { active, announcements, calls, context, finishTurn, kicks };
+  const exposed = runInNewContext(api, context);
+  assert.equal(typeof exposed.finishTurn, "function");
+  assert.equal(typeof exposed.takeAbortReason, "function");
+  assert.equal(typeof exposed.lockAbortReason, "function");
+  return {
+    active,
+    announcements,
+    calls,
+    context,
+    finishTurn: exposed.finishTurn,
+    kicks,
+    lockAbortReason: exposed.lockAbortReason,
+    takeAbortReason: exposed.takeAbortReason,
+  };
 }
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -135,4 +167,30 @@ test("a stale turn does not settle a newer turn's session-keyed state", async ()
   await f.finishTurn("s1", "error", "STALE", { turnId: "t1" });
   assert.equal(f.context.activeTurnUsages.get("s1")?.inputTokens, 5);
   assert.equal(f.context.scheduledRunsBySession.get("s1"), "run-of-t2");
+});
+
+// A terminal event that cannot be attributed to a turn must not consume that
+// turn's locked abort reason. Taking it would make the cancelled turn look
+// cancellable again (so its tools would keep dispatching) and its own terminal
+// event would then report the wrong reason.
+test("an unattributable terminal event does not consume the abort reason", () => {
+  const f = fixture();
+  f.lockAbortReason("s1", "t1");
+  assert.equal(
+    f.takeAbortReason("s1", undefined),
+    undefined,
+    "an event with no identity has no lock to take",
+  );
+  assert.equal(
+    f.takeAbortReason("s1", "t1"),
+    "aborted",
+    "the cancelled turn keeps its locked reason",
+  );
+});
+
+test("a locked reason is consumed only by the turn that locked it", () => {
+  const f = fixture();
+  f.lockAbortReason("s1", "t1");
+  assert.equal(f.takeAbortReason("s1", "t2"), undefined, "another turn cannot take it");
+  assert.equal(f.takeAbortReason("s1", "t1"), "aborted");
 });

@@ -93,11 +93,13 @@ test("abort reason outlives turn teardown and is consumed on read", () => {
     main,
     /finally \{[\s\S]{0,600}?pendingAbortReasons\.delete/,
   );
-  // The lock and the read resolve the key the same way, including the
-  // active-turn fallback for a terminal event that carries no turn id.
-  assert.match(
+  // The read takes the lock for one turn only. An event that carries no turn id
+  // cannot be attributed, so it must not consume the active turn's decision.
+  assert.match(main, /if \(!turnId\) return undefined;/);
+  assert.match(main, /const key = turnKey\(sessionId, turnId\);/);
+  assert.doesNotMatch(
     main,
-    /const key = turnKey\(sessionId, turnId \?\? activeTurns\.get\(sessionId\)\);/,
+    /turnKey\(sessionId, turnId \?\? activeTurns\.get\(sessionId\)\)/,
   );
 });
 

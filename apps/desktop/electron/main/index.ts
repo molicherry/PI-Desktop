@@ -2473,9 +2473,13 @@ function takeAbortReason(
   sessionId: string,
   turnId?: string,
 ): "aborted" | undefined {
-  // Mirror the lock's key resolution: a terminal envelope without a turn id
-  // must still honour a reason locked for the session's active turn.
-  const key = turnKey(sessionId, turnId ?? activeTurns.get(sessionId));
+  // Only the turn a lock belongs to may consume it. An event carrying no
+  // identity cannot be attributed to any turn, and one naming another turn
+  // belongs to that turn: neither may take this turn's decision away, or the
+  // cancelled turn would look cancellable again and its own terminal event
+  // would lose the reason it locked.
+  if (!turnId) return undefined;
+  const key = turnKey(sessionId, turnId);
   if (!pendingAbortReasons.has(key)) return undefined;
   pendingAbortReasons.delete(key);
   return "aborted";
