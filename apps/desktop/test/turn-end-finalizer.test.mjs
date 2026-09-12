@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
 import { runInNewContext } from "node:vm";
+import { InflightCheckpointer } from "../electron/main/inflight-checkpoint.ts";
 
 // Exercise the real desktop turn finalizer, without booting Electron or making a
 // provider request. Source-text assertions cannot see scoping, throwing or
@@ -46,18 +47,29 @@ assert.ok(
   "the delivery gate must be locatable",
 );
 const deliveryGate = transpile(main.slice(staleStart, staleEnd));
-const api = `${support}\n${deliveryGate}\n${finalizer}\n;({ finishTurn, isStaleTerminalEvent, isTurnDispatchable, lockAbortReason, takeAbortReason })`;
+// The crash cleanup is a module-level function so this suite can drive its real
+// suspension ordering instead of counting awaits in the source.
+const settleStart = main.indexOf("async function settleCrashedSession(");
+const settleEnd = main.indexOf("\n}", settleStart);
+assert.ok(
+  settleStart >= 0 && settleEnd > settleStart,
+  "settleCrashedSession must be locatable",
+);
+const crashCleanup = transpile(main.slice(settleStart, settleEnd + 2));
+const api = `${support}\n${deliveryGate}\n${finalizer}\n${crashCleanup}\n;({ finishTurn, isStaleTerminalEvent, isTurnDispatchable, lockAbortReason, takeAbortReason, settleCrashedSession })`;
 
 /**
- * The finalizer is a closure over module state, so each case gets its own
- * context with the same collaborators and records what the host was asked to do.
+ * The finalizer and the crash cleanup are closures over module state, so each
+ * case gets its own context with the same collaborators and records what the
+ * host was asked to do.
  */
-function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
+function fixture({ active = new Map([["s1", "t1"]]), endTurn, inflightCheckpointer } = {}) {
   const announcements = [];
   const kicks = [];
   const calls = [];
   const context = {
     activeTurns: active,
+    approvedExecutionIdsBySession: new Map(),
     turnFinalizations: new Map(),
     activeTurnUsages: new Map(),
     planSubmissionTurnIds: new Set(),
@@ -80,6 +92,10 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
     agentHostBridge: { agentHost: { kick: (id) => kicks.push(id) } },
     announceTurnEnded: (sessionId, turnId, reason) =>
       announcements.push({ sessionId, turnId, reason }),
+    // A case that drives the crash cleanup passes the real InflightCheckpointer.
+    inflightCheckpointer:
+      inflightCheckpointer ?? { flush: async () => {}, settle() {} },
+    finishApprovedExecution: async () => {},
     host: {
       async call(method, params) {
         calls.push({ method, params });
@@ -92,6 +108,7 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
   assert.equal(typeof exposed.finishTurn, "function");
   assert.equal(typeof exposed.takeAbortReason, "function");
   assert.equal(typeof exposed.lockAbortReason, "function");
+  assert.equal(typeof exposed.settleCrashedSession, "function");
   return {
     active,
     announcements,
@@ -100,6 +117,7 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
     finishTurn: exposed.finishTurn,
     kicks,
     lockAbortReason: exposed.lockAbortReason,
+    settleCrashedSession: exposed.settleCrashedSession,
     takeAbortReason: exposed.takeAbortReason,
     isStaleTerminalEvent: exposed.isStaleTerminalEvent,
     isTurnDispatchable: exposed.isTurnDispatchable,
@@ -107,6 +125,14 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
 }
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((yes) => {
+    resolve = yes;
+  });
+  return { promise, resolve };
+}
 
 test("a turn end is announced once, with its terminal reason", async () => {
   const f = fixture();
@@ -252,5 +278,73 @@ test("the settled turn's usage is consumed", async () => {
     f.context.activeTurnUsages.get("s1"),
     undefined,
     "the settled turn's usage is cleared",
+  );
+});
+
+// The crash cleanup suspends inside `inflightCheckpointer.flush`. While it is
+// parked, the same session can start a newer turn whose snapshots land in that
+// session, and `settle` forgets the whole session. Counting ownership checks in
+// the source cannot see that; this drives the real checkpointer through the real
+// cleanup statement order and asserts on what the checkpointer still holds.
+test("the crash cleanup keeps a checkpoint observed while its flush was parked", async () => {
+  const saved = [];
+  const gates = [];
+  // A long interval keeps the checkpointer's own trailing write out of the way;
+  // every write parks on a gate this test resolves by hand.
+  const checkpointer = new InflightCheckpointer(
+    (checkpoint) => {
+      saved.push(checkpoint.message.id);
+      const gate = deferred();
+      gates.push(gate);
+      return gate.promise;
+    },
+    60_000,
+    () => 0,
+  );
+  const snapshot = (id) => ({
+    sessionId: "s1",
+    turnId: "t2",
+    message: { id, role: "assistant", content: `partial ${id}` },
+  });
+  const f = fixture({ inflightCheckpointer: checkpointer });
+
+  // The crashed turn's own snapshot is mid-write when the cleanup starts.
+  checkpointer.observe({
+    sessionId: "s1",
+    turnId: "t1",
+    message: { id: "m1", role: "assistant", content: "partial m1" },
+  });
+  assert.deepEqual(saved, ["m1"], "the crashed turn's snapshot starts writing");
+
+  const cleanup = f.settleCrashedSession("s1", "t1");
+  // The cleanup has passed its first ownership check and is now parked in flush.
+  await settle();
+  f.active.set("s1", "t2");
+  checkpointer.observe(snapshot("m2"));
+
+  // m1's write completes; the parked flush chains the newer turn's snapshot.
+  gates[0].resolve();
+  await settle();
+  assert.deepEqual(saved, ["m1", "m2"], "the newer turn's snapshot is written");
+  // ...and m3 streams in while that write is still parked.
+  checkpointer.observe(snapshot("m3"));
+
+  gates[1].resolve();
+  await cleanup;
+
+  assert.deepEqual(
+    checkpointer.pendingSessions(),
+    ["s1"],
+    "the crash cleanup must not settle the newer turn's pending checkpoint",
+  );
+  assert.deepEqual(saved, ["m1", "m2"], "the cleanup writes nothing itself");
+
+  const flush = checkpointer.flush("s1");
+  gates.at(-1).resolve();
+  await flush;
+  assert.equal(
+    saved.at(-1),
+    "m3",
+    "the newer turn's checkpoint survives to be persisted",
   );
 });

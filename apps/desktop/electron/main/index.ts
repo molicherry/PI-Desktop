@@ -5059,33 +5059,7 @@ function wireSidecar(s: AgentSidecar) {
       // session can start a new turn while this one is still unwinding, and a
       // late cleanup must not settle or abort that newer turn.
       const crashedTurnId = activeTurns.get(sessionId);
-      void (async () => {
-        const executionId = approvedExecutionIdsBySession.get(sessionId);
-        if (host) {
-          await host.call("plans.abort", { sessionId }).catch(() => undefined);
-        }
-        // A newer turn may own the session by now; this cleanup is the old one's.
-        if (activeTurns.get(sessionId) !== crashedTurnId) return;
-        // No final row is coming from a dead sidecar: keep whatever the reply
-        // had streamed so far as an aborted transcript row (D299).
-        await inflightCheckpointer.flush(sessionId);
-        // The flush awaits as well, so a newer turn can have started and
-        // checkpointed while it ran. Settling here would discard that turn's
-        // pending state, so ownership is re-checked after every await.
-        if (activeTurns.get(sessionId) !== crashedTurnId) return;
-        inflightCheckpointer.settle(sessionId);
-        await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED", {
-          recoverInflight: true,
-          turnId: crashedTurnId,
-        });
-        if (executionId) {
-          await finishApprovedExecution(
-            executionId,
-            "interrupted",
-            "PLAN_EXECUTION_INTERRUPTED",
-          );
-        }
-      })();
+      void settleCrashedSession(sessionId, crashedTurnId);
     }
     for (const [executionId] of claimedExecutionSessions) {
       void finishApprovedExecution(
@@ -5104,6 +5078,42 @@ function wireSidecar(s: AgentSidecar) {
     });
     void superviseRestart("sidecar");
   });
+}
+
+/**
+ * Unwind one session after the agent sidecar exited unexpectedly. Extracted
+ * from the exit handler so the suspension ordering and the ownership
+ * re-checks can be executed by a test, not only pattern-matched.
+ */
+async function settleCrashedSession(
+  sessionId: string,
+  crashedTurnId: string | undefined,
+): Promise<void> {
+  const executionId = approvedExecutionIdsBySession.get(sessionId);
+  if (host) {
+    await host.call("plans.abort", { sessionId }).catch(() => undefined);
+  }
+  // A newer turn may own the session by now; this cleanup is the old one's.
+  if (activeTurns.get(sessionId) !== crashedTurnId) return;
+  // No final row is coming from a dead sidecar: keep whatever the reply
+  // had streamed so far as an aborted transcript row (D299).
+  await inflightCheckpointer.flush(sessionId);
+  // The flush awaits as well, so a newer turn can have started and
+  // checkpointed while it ran. Settling here would discard that turn's
+  // pending state, so ownership is re-checked after every await.
+  if (activeTurns.get(sessionId) !== crashedTurnId) return;
+  inflightCheckpointer.settle(sessionId);
+  await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED", {
+    recoverInflight: true,
+    turnId: crashedTurnId,
+  });
+  if (executionId) {
+    await finishApprovedExecution(
+      executionId,
+      "interrupted",
+      "PLAN_EXECUTION_INTERRUPTED",
+    );
+  }
 }
 
 async function startSidecar(): Promise<void> {
