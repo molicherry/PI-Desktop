@@ -73,6 +73,17 @@ accept_prompt
  -> turn_end
 ```
 
+A turn reaches one of three terminal reasons — `completed`, `aborted`, or
+`error` — matching the `aborted` / `error` rows in section 1. The terminal
+reason is decided once: an abort records its decision before the cancel request
+is issued, so a later `agent_end` cannot restate an aborted turn as completed.
+Terminal events are attributed by turn identity, not by session: a terminal
+event whose turn no longer owns the session changes neither the current turn's
+state nor its resources, and late message and tool rows are still recorded as
+history. The host announces the terminal state once per started turn through
+the `session:turnEnded` plugin event (see ADR 0233,
+`docs/adr/0233-plugin-host-turn-end-event.md`).
+
 ## 3. Transition rules
 
 1. Only one active turn per session
