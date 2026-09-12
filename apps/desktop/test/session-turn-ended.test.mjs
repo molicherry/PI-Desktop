@@ -172,3 +172,26 @@ test("both gates reject an event or dispatch that is not the live turn", () => {
     /if \(!isTurnDispatchable\(q\.sessionId \?\? "", q\.turnId\)\)/,
   );
 });
+
+// The crash cleanup suspends at an await, so a newer turn can start and
+// checkpoint while it is parked. Ownership has to be re-checked after every
+// await, not only after the first one: settling discards the whole session's
+// pending state, including the newer turn's.
+test("the crash cleanup re-checks ownership after every await", () => {
+  const start = main.indexOf("const crashedTurnId");
+  const end = main.indexOf(
+    'await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED"',
+    start,
+  );
+  assert.ok(start > 0 && end > start, "the crash cleanup must be locatable");
+  const block = main.slice(start, end);
+  const awaits = (block.match(/\bawait /g) ?? []).length;
+  const checks = (
+    block.match(/activeTurns\.get\(sessionId\) !== crashedTurnId/g) ?? []
+  ).length;
+  assert.equal(
+    checks,
+    awaits,
+    `${awaits} awaits in the crash cleanup but ${checks} ownership checks`,
+  );
+});

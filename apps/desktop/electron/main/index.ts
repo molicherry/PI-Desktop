@@ -5069,6 +5069,10 @@ function wireSidecar(s: AgentSidecar) {
         // No final row is coming from a dead sidecar: keep whatever the reply
         // had streamed so far as an aborted transcript row (D299).
         await inflightCheckpointer.flush(sessionId);
+        // The flush awaits as well, so a newer turn can have started and
+        // checkpointed while it ran. Settling here would discard that turn's
+        // pending state, so ownership is re-checked after every await.
+        if (activeTurns.get(sessionId) !== crashedTurnId) return;
         inflightCheckpointer.settle(sessionId);
         await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED", {
           recoverInflight: true,
