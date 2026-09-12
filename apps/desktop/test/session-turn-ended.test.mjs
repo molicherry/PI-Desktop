@@ -45,7 +45,10 @@ test("turn end payload carries session, turn and terminal reason", () => {
 // the same turn once its TTL elapsed.
 test("turn end is emitted at most once per turn identity", () => {
   assert.match(main, /function turnKey\(sessionId: string, turnId\?: string\)/);
-  assert.match(main, /if \(!turnId \|\| !isActiveTurn\(sessionId, turnId\)\) return;/);
+  assert.match(
+    main,
+    /if \(!turnId \|\| !isActiveTurn\(sessionId, turnId\)\) return Promise\.resolve\(\);/,
+  );
   assert.doesNotMatch(
     main,
     /announcedTurns|ANNOUNCED_TURN_TTL_MS|ANNOUNCED_TURN_LIMIT|pruneAnnouncedTurns/,
@@ -144,6 +147,24 @@ test("api docs document the event, its limits and both locales", () => {
     assert.match(doc, /turnId/);
   }
   assert.match(apiEn, /aborted/);
+
+// A terminal event that cannot be attributed to the current turn must not reach
+// the Agent Host or the renderer, and a plugin dispatch must not start once the
+// turn is cancelled or already finalizing.
+test("both gates reject an event or dispatch that is not the live turn", () => {
+  assert.match(
+    main,
+    /return !envelope\.turnId \|\| active !== envelope\.turnId;/,
+  );
+  assert.match(
+    main,
+    /!pendingAbortReasons\.has\(turnKey\(gateSessionId, q\.turnId\)\)/,
+  );
+  assert.match(
+    main,
+    /!turnFinalizations\.has\(turnKey\(gateSessionId, q\.turnId\)\)/,
+  );
+});
   // The no-replay limit is the honest part of the contract.
   assert.match(apiEn, /replay|no replay|not replayed|fire-and-forget/i);
 });

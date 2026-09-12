@@ -4816,14 +4816,24 @@ function wireHost(h: HostProcess) {
                 // Executor identity is best-effort; the tool can still run.
               }
             }
-            // Last synchronous gate before dispatch: a turn cancelled during
-            // the session.get await above must not start a plugin side effect.
-            if (q.turnId && activeTurns.get(q.sessionId ?? "") !== q.turnId) {
+            // Last synchronous gate before dispatch: the turn may have been
+            // cancelled or started finalizing while the session read above was
+            // awaited, and neither may start a plugin side effect. No await may
+            // sit between this check and the dispatch.
+            const gateSessionId = q.sessionId ?? "";
+            const survivesGate =
+              q.turnId != null &&
+              activeTurns.get(gateSessionId) === q.turnId &&
+              !pendingAbortReasons.has(turnKey(gateSessionId, q.turnId)) &&
+              !turnFinalizations.has(turnKey(gateSessionId, q.turnId));
+            if (!survivesGate) {
               payload = {
                 executionId: q.executionId,
                 ok: false,
                 errorCode: "TOOL_TURN_CANCELLED",
-                content: { error: `turn ${q.turnId} is no longer active` },
+                content: {
+                  error: `turn ${q.turnId ?? "(none)"} is no longer dispatchable`,
+                },
               };
             } else {
               const result = await tool.execute(q.args, {
@@ -4959,10 +4969,12 @@ function isStaleTerminalEvent(envelope: AgentEventEnvelope): boolean {
   if (envelope.event.type !== "agent_end" && envelope.event.type !== "error") {
     return false;
   }
+  // A terminal event can only belong to the turn that still owns the session.
+  // One that names another turn belongs to that turn, and one that carries no
+  // identity cannot be attributed at all: neither may change this turn's state.
   const active = activeTurns.get(envelope.sessionId);
-  return Boolean(active && envelope.turnId && active !== envelope.turnId);
+  return !envelope.turnId || active !== envelope.turnId;
 }
-
 /** Fan an agent event out to the renderer and the headless Agent Host module. */
 function emitAgentEvent(envelope: AgentEventEnvelope) {
   // Persistence is a separate call made by the caller, so dropping the event
@@ -5327,7 +5339,9 @@ function finishTurn(
   // A terminal event without an identity would otherwise settle whichever turn
   // is active, and a late event for an older turn would settle the newer one.
   const turnId = options.turnId;
-  if (!turnId || !isActiveTurn(sessionId, turnId)) return;
+  // Nothing to settle: no identity, or a turn that no longer owns its session.
+  // Still return a promise, because callers chain on the result.
+  if (!turnId || !isActiveTurn(sessionId, turnId)) return Promise.resolve();
   const finalizationKey = turnKey(sessionId, turnId);
   const existing = turnFinalizations.get(finalizationKey);
   if (existing) return existing;
@@ -5752,13 +5766,18 @@ function persistAgentEvent(envelope: AgentEventEnvelope): UiMessage | undefined 
     // An abort locked its reason before the cancel RPC: honour it here so a
     // later terminal event cannot restate a user abort as a completion.
     const errorReason = takeAbortReason(envelope.sessionId, envelope.turnId);
+    // Ownership is read before the finalizer releases it, so a late terminal
+    // event cannot end an approved execution belonging to a newer turn.
+    const ownsTurn =
+      envelope.turnId != null &&
+      activeTurns.get(envelope.sessionId) === envelope.turnId;
     const turnFinalization = finishTurn(
       envelope.sessionId,
       errorReason ?? (event.error.code === "TURN_ABORTED" ? "aborted" : "error"),
       event.error.code,
       { turnId: envelope.turnId },
     );
-    if (executionId) {
+    if (executionId && ownsTurn) {
       void turnFinalization.then(() =>
         finishApprovedExecution(
           executionId,
@@ -5771,17 +5790,22 @@ function persistAgentEvent(envelope: AgentEventEnvelope): UiMessage | undefined 
   }
   if (event.type === "agent_end") {
     const completedReason = takeAbortReason(envelope.sessionId, envelope.turnId);
+    const ownsTurn =
+      envelope.turnId != null &&
+      activeTurns.get(envelope.sessionId) === envelope.turnId;
     const turnFinalization = finishTurn(
       envelope.sessionId,
       completedReason ?? "completed",
       undefined,
       { turnId: envelope.turnId },
     );
-    if (executionId) {
+    if (executionId && ownsTurn) {
       void turnFinalization.then(() =>
         finishApprovedExecution(executionId, "completed"),
       );
     }
+    // A late terminal event must not restate the archive either.
+    if (!ownsTurn) return;
     // Persist the completed branch as the active regenerate revision when the
     // latest user turn carries revision metadata (ChatGPT-style history).
     void (async () => {

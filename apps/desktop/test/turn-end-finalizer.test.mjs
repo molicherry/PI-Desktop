@@ -75,14 +75,26 @@ test("a turn end is announced once, with its terminal reason", async () => {
 
 test("a terminal event without a turn identity settles nothing", async () => {
   const f = fixture();
-  await f.finishTurn("s1", "error", "BOOM", {});
+  // Callers chain on the result, so the no-op path must still be a promise:
+  // `await undefined` would hide a broken contract here.
+  const promise = f.finishTurn("s1", "error", "BOOM", {});
+  assert.ok(
+    promise && typeof promise.then === "function",
+    "a no-op finalization returns a thenable",
+  );
+  await promise;
   assert.equal(f.announcements.length, 0);
   assert.equal(f.calls.length, 0, "no persistence without an identity");
 });
 
 test("a terminal event for a turn that lost its session is ignored", async () => {
   const f = fixture({ active: new Map([["s1", "t2"]]) });
-  await f.finishTurn("s1", "error", "LATE", { turnId: "t1" });
+  const promise = f.finishTurn("s1", "error", "LATE", { turnId: "t1" });
+  assert.ok(
+    promise && typeof promise.then === "function",
+    "an ignored turn end returns a thenable",
+  );
+  await promise;
   assert.equal(f.announcements.length, 0);
   assert.equal(f.calls.length, 0, "a stale turn must not reach persistence");
   assert.equal(f.active.get("s1"), "t2", "the newer turn keeps ownership");
