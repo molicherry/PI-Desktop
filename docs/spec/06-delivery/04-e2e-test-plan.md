@@ -10236,6 +10236,10 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
   Escape and outside click dismiss the menu.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`
 - **Acceptance**: Quality (navigation and accessibility)
+- **Milestone**: M5
+- **Status**: Unit-covered (`home-project-switcher.test.mjs`,
+  `git-clone.test.mjs`, `sidebar-preferences.test.mjs`); full UI scenario Draft
+  (do not run E2E locally unless explicitly requested)
 
 #### E2E-257: A plugin observes exactly one turn-end event per host turn
 
@@ -10260,7 +10264,3 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
 - **Specs linked**: `07-plugins/03-plugin-api.md`, `07-plugins/13-plugin-permissions-matrix.md`,
   ADR 0233
 - **Acceptance**: Quality (protocol and plugin contract)
-- **Milestone**: M5
-- **Status**: Unit-covered (`home-project-switcher.test.mjs`,
-  `git-clone.test.mjs`, `sidebar-preferences.test.mjs`); full UI scenario Draft
-  (do not run E2E locally unless explicitly requested)
