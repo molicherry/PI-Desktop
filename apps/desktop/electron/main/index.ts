@@ -2405,6 +2405,79 @@ const inFlightExecutionFinishes = new Set<string>();
 let approvedExecutionDrain: Promise<void> | null = null;
 const turnSettlements = new Map<string, Set<() => void>>();
 const turnFinalizations = new Map<string, Promise<void>>();
+/**
+ * Turn identities that have already produced a `session:turnEnded` event.
+ * The end event is host-scoped, one per actually started turn; entries are
+ * dropped when the turn's local state is released so the set stays bounded.
+ */
+const announcedTurns = new Set<string>();
+
+/** Composite identity for one host turn. Falls back to the session when a
+ *  caller predates turn tracking, which keeps legacy paths working. */
+function turnKey(sessionId: string, turnId?: string): string {
+  return `${sessionId}:${turnId ?? ""}`;
+}
+
+/** True when `turnId` still owns this session's active turn. A late terminal
+ *  event carrying an older turn must not settle or release the current one. */
+function isActiveTurn(sessionId: string, turnId?: string): boolean {
+  if (!turnId) return false;
+  return activeTurns.get(sessionId) === turnId;
+}
+
+/**
+ * Tell loaded plugins and the plugin surfaces that a host turn reached a
+ * terminal state. Sent once per turn: dispatch, persistence, and any later
+ * duplicate terminal event all funnel through the same key.
+ */
+function announceTurnEnded(
+  sessionId: string,
+  turnId: string,
+  reason: "completed" | "aborted" | "error",
+): void {
+  const key = turnKey(sessionId, turnId);
+  if (announcedTurns.has(key)) return;
+  announcedTurns.add(key);
+  const payload = { sessionId, turnId, reason };
+  // Both surfaces are best-effort: a failure to reach plugins or a panel must
+  // never block the rest of turn teardown.
+  try {
+    plugins.broadcastEvent("session:turnEnded", [payload]);
+  } catch (e) {
+    logger.app("plugins", "warn", "turnEnded plugin broadcast failed", {
+      sessionId,
+      data: String(e),
+    });
+  }
+  try {
+    broadcastPluginPanelEvent("session:turnEnded", payload);
+  } catch (e) {
+    logger.app("plugins", "warn", "turnEnded panel broadcast failed", {
+      sessionId,
+      data: String(e),
+    });
+  }
+}
+
+/** Lock the terminal reason for an active turn before any async cancel work,
+ *  so a later `agent_end` cannot restate an abort as a completion. */
+const pendingAbortReasons = new Map<string, "aborted">();
+
+function lockAbortReason(sessionId: string, turnId?: string): void {
+  const active = turnId ?? activeTurns.get(sessionId);
+  if (!active || !isActiveTurn(sessionId, active)) return;
+  pendingAbortReasons.set(turnKey(sessionId, active), "aborted");
+}
+
+function takeAbortReason(
+  sessionId: string,
+  turnId?: string,
+): "aborted" | undefined {
+  const key = turnKey(sessionId, turnId);
+  if (!pendingAbortReasons.has(key)) return undefined;
+  pendingAbortReasons.delete(key);
+  return "aborted";
+}
 /** sessionId -> last assistant usage recorded for active turn */
 const activeTurnUsages = new Map<string, MessageUsage>();
 
@@ -4669,8 +4742,8 @@ function wireHost(h: HostProcess) {
           toolName: string;
           args: unknown;
           mode?: string;
-          mode?: string;
           turnId?: string;
+        };
         const projectPath = q.sessionId
           ? (sessionProjects.get(q.sessionId) ?? null)
           : null;
@@ -4803,7 +4876,9 @@ function wireHost(h: HostProcess) {
     if (intentional || quitting) return;
     for (const [executionId, sessionId] of claimedExecutionSessions) {
       if (approvedExecutionIdsBySession.get(sessionId) === executionId) {
-        void finishTurn(sessionId, "aborted", "PLAN_EXECUTION_INTERRUPTED");
+        void finishTurn(sessionId, "aborted", "PLAN_EXECUTION_INTERRUPTED", {
+          turnId: activeTurns.get(sessionId),
+        });
       }
       void finishApprovedExecution(
         executionId,
@@ -4922,6 +4997,7 @@ function wireSidecar(s: AgentSidecar) {
         inflightCheckpointer.settle(sessionId);
         await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED", {
           recoverInflight: true,
+          turnId: activeTurns.get(sessionId),
         });
         if (executionId) {
           await finishApprovedExecution(
@@ -5208,18 +5284,28 @@ function finishTurn(
   sessionId: string,
   status: "completed" | "aborted" | "error",
   errorCode?: string,
-  options: { createNotification?: boolean; recoverInflight?: boolean } = {},
+  options: {
+    createNotification?: boolean;
+    recoverInflight?: boolean;
+    /**
+     * Identity of the turn this terminal event belongs to. Callers that hold a
+     * runtime event must pass its `turnId`; omission falls back to the session's
+     * active turn for paths that predate turn tracking.
+     */
+    turnId?: string;
+  } = {},
 ): Promise<void> {
-  const existing = turnFinalizations.get(sessionId);
+  const turnId = options.turnId ?? activeTurns.get(sessionId);
+  const finalizationKey = turnKey(sessionId, turnId);
+  const existing = turnFinalizations.get(finalizationKey);
   if (existing) return existing;
 
   const finalization = (async () => {
-    const turnId = activeTurns.get(sessionId);
-    const turnKey = turnId
+    const planKey = turnId
       ? planSubmissionTurnKey(sessionId, turnId)
       : undefined;
-    const wasPlanSubmission = turnKey
-      ? planSubmissionTurnIds.has(turnKey)
+    const wasPlanSubmission = planKey
+      ? planSubmissionTurnIds.has(planKey)
       : false;
 
     try {
@@ -5287,11 +5373,17 @@ function finishTurn(
       if (turnId && activeTurns.get(sessionId) === turnId) {
         activeTurns.delete(sessionId);
       }
-      if (turnKey) {
-        planSubmissionTurnIds.delete(turnKey);
-        const waiters = turnSettlements.get(turnKey);
+      if (turnId) {
+        // Bound the once-per-turn set to turns that are still live, and drop
+        // any locked abort reason now that the turn is settled.
+        announcedTurns.delete(turnKey(sessionId, turnId));
+        pendingAbortReasons.delete(turnKey(sessionId, turnId));
+      }
+      if (planKey) {
+        planSubmissionTurnIds.delete(planKey);
+        const waiters = turnSettlements.get(planKey);
         if (waiters) {
-          turnSettlements.delete(turnKey);
+          turnSettlements.delete(planKey);
           for (const resolve of waiters) resolve();
         }
       }
@@ -5311,18 +5403,23 @@ function finishTurn(
         }
       }, 5 * 60 * 1000).unref();
     }
+
+    // The turn has reached a terminal state and can no longer dispatch or
+    // resume screen work, so announce it. This runs after the durable endTurn
+    // attempt (which may have failed) and before local ownership is released,
+    // so a plugin never waits on persistence to learn the turn is over.
+    if (turnId) {
+      announceTurnEnded(sessionId, turnId, status);
+    }
   })();
 
-  turnFinalizations.set(sessionId, finalization);
+  turnFinalizations.set(finalizationKey, finalization);
   const releaseFinalization = () => {
-    if (turnFinalizations.get(sessionId) === finalization) {
-      turnFinalizations.delete(sessionId);
-      // The terminal event reaches Agent Host while activeTurns still owns
-      // this session. Retry its deferred queue drain once settlement releases
-      // both busy guards, unless the application is shutting down.
-      if (!quitting) agentHostBridge?.agentHost.kick(sessionId);
+    if (turnFinalizations.get(finalizationKey) === finalization) {
+      turnFinalizations.delete(finalizationKey);
     }
   };
+  void finalization.then(releaseFinalization, releaseFinalization);
   void finalization.then(releaseFinalization, releaseFinalization);
   return finalization;
 }
@@ -5480,7 +5577,9 @@ async function dispatchApprovedPlan(rawExecution: unknown): Promise<void> {
     const errorCode =
       error?.data?.errorCode || error?.errorCode || ErrorCodes.PLAN_EXECUTION_INTERRUPTED;
     if (turnId && activeTurns.get(initial.sessionId) === turnId) {
-      await finishTurn(initial.sessionId, "error", errorCode);
+      await finishTurn(initial.sessionId, "error", errorCode, {
+        turnId: activeTurns.get(initial.sessionId),
+      });
     }
     if (claimed) {
       await finishApprovedExecution(initial.id, "interrupted", errorCode);
@@ -5618,10 +5717,14 @@ function persistAgentEvent(envelope: AgentEventEnvelope): UiMessage | undefined 
         details: event.error.details,
       },
     });
+    // An abort locked its reason before the cancel RPC: honour it here so a
+    // later terminal event cannot restate a user abort as a completion.
+    const errorReason = takeAbortReason(envelope.sessionId, envelope.turnId);
     const turnFinalization = finishTurn(
       envelope.sessionId,
-      event.error.code === "TURN_ABORTED" ? "aborted" : "error",
+      errorReason ?? (event.error.code === "TURN_ABORTED" ? "aborted" : "error"),
       event.error.code,
+      { turnId: envelope.turnId },
     );
     if (executionId) {
       void turnFinalization.then(() =>
@@ -5635,7 +5738,13 @@ function persistAgentEvent(envelope: AgentEventEnvelope): UiMessage | undefined 
     return;
   }
   if (event.type === "agent_end") {
-    const turnFinalization = finishTurn(envelope.sessionId, "completed");
+    const completedReason = takeAbortReason(envelope.sessionId, envelope.turnId);
+    const turnFinalization = finishTurn(
+      envelope.sessionId,
+      completedReason ?? "completed",
+      undefined,
+      { turnId: envelope.turnId },
+    );
     if (executionId) {
       void turnFinalization.then(() =>
         finishApprovedExecution(executionId, "completed"),
@@ -8176,7 +8285,9 @@ function registerIpc() {
           .call("agent.abort", { sessionId: req.sessionId })
           .catch(() => undefined);
       }
-      await finishTurn(req.sessionId, "aborted", "TURN_ABORTED");
+      await finishTurn(req.sessionId, "aborted", "TURN_ABORTED", {
+        turnId: activeTurns.get(req.sessionId),
+      });
 
       try {
         await persistenceOutbox.flush(() => host);
@@ -8305,7 +8416,9 @@ function registerIpc() {
         supportsVision,
       );
     } catch (error) {
-      await finishTurn(req.sessionId, "error", (error as any)?.errorCode);
+      await finishTurn(req.sessionId, "error", (error as any)?.errorCode, {
+        turnId: activeTurns.get(req.sessionId),
+      });
       throw error;
     }
     const modelContent = appendPromptFallbackPaths(
@@ -8358,8 +8471,8 @@ function registerIpc() {
         (error as { data?: { errorCode?: string }; errorCode?: string })?.data
           ?.errorCode ??
           (error as { errorCode?: string })?.errorCode,
+        { turnId: activeTurns.get(req.sessionId) },
       );
-      throw error;
     }
     emitAgentEvent({
       sessionId: req.sessionId,
@@ -8396,7 +8509,9 @@ function registerIpc() {
         },
       );
     } catch (e) {
-      await finishTurn(req.sessionId, "error", (e as any)?.errorCode);
+      await finishTurn(req.sessionId, "error", (e as any)?.errorCode, {
+        turnId: activeTurns.get(req.sessionId),
+      });
       throw e;
     }
     logger.app("session", "info", "prompt accepted", {
@@ -8444,6 +8559,11 @@ function registerIpc() {
     if (!sidecar) throw new Error("sidecar unavailable");
     logger.app("session", "info", "prompt aborted", { sessionId: req.sessionId });
     agentHostBridge?.markAborting(req.sessionId);
+    // Capture the target turn and lock the abort reason before the first await:
+    // the cancel RPC can take a while, and a terminal event arriving in that
+    // window must not settle the turn as completed.
+    const abortTurnId = activeTurns.get(req.sessionId);
+    lockAbortReason(req.sessionId, abortTurnId);
     const executionId =
       approvedExecutionIdsBySession.get(req.sessionId) ??
       [...claimedExecutionSessions].find(
@@ -8455,7 +8575,9 @@ function registerIpc() {
       agentExtensions.cancelPrompts(req.sessionId);
       result = await sidecar.call("agent.abort", req);
     } finally {
-      await finishTurn(req.sessionId, "aborted", "TURN_ABORTED");
+      await finishTurn(req.sessionId, "aborted", "TURN_ABORTED", {
+        turnId: abortTurnId,
+      });
       if (executionId) {
         await finishApprovedExecution(
           executionId,
@@ -9509,7 +9631,10 @@ app.whenReady().then(async () => {
     invoke: invokeIpc,
     channels: IPC.invoke,
     getHost: () => host,
-    isSessionBusy: (sessionId) => activeTurns.has(sessionId) || turnFinalizations.has(sessionId),
+    isSessionBusy: (sessionId) =>
+      activeTurns.has(sessionId) ||
+      turnFinalizations.has(turnKey(sessionId, activeTurns.get(sessionId))) ||
+      [...turnFinalizations.keys()].some((key) => key.startsWith(`${sessionId}:`)),
     onQueueChange: (event) => sendToRenderer(IPC.event.agentQueueChanged, event),
     log: (level, message, data) => logger.app("runtime", level, message, { data }),
   });
