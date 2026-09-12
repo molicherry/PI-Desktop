@@ -10241,7 +10241,7 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
   `git-clone.test.mjs`, `sidebar-preferences.test.mjs`); full UI scenario Draft
   (do not run E2E locally unless explicitly requested)
 
-#### E2E-PLUGINS-001: A plugin observes exactly one turn-end event per host turn
+#### E2E-PLUGIN-turn-ended-once-per-host-turn: A plugin observes exactly one turn-end event per host turn
 
 - **Preconditions**: A plugin with a tool and an event listener for
   `session:turnEnded` is loaded and enabled; its panel records each received

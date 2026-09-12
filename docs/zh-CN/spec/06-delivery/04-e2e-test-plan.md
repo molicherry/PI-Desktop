@@ -6557,7 +6557,7 @@ IPC 请求无法关闭。
 - **里程碑**：M2
 - **状态**：单元覆盖（`packages/shared/src/composer-trigger.test.ts`、`apps/desktop/test/composer-ime.test.mjs`）；渲染桌面旅程为草稿（除非明确要求，不本地运行 E2E）
 
-#### E2E-PLUGINS-001：每个宿主回合只产生一次回合结束事件
+#### E2E-PLUGIN-turn-ended-once-per-host-turn：每个宿主回合只产生一次回合结束事件
 
 - **前置条件**：已加载并启用一个带工具、且监听 `session:turnEnded` 的插件；其面板记录每次收到的载荷，以及工具通过工具上下文拿到的 `turnId`。
 - **步骤**：
