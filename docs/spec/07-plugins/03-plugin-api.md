@@ -226,6 +226,9 @@ type ToolExecContext = {
 }
 ```
 
+`turnId` is populated for host-driven turns and matches the `turnId` of the
+corresponding `session:turnEnded` event (§5).
+
 ### models (requires `models.list`)
 ```ts
 pi.models.list(): Promise<PluginModelInfo[]>
@@ -580,6 +583,24 @@ Delivered today:
 - `session:modelChanged` — `{ sessionId, modelKey, thinkingLevel }`, sent after
   a successful `session.configure` that changes provider, model, or thinking
   level.
+- `session:turnEnded` — payload is
+  `{ sessionId: string; turnId: string; reason: "completed" | "aborted" | "error" }`,
+  sent once per host turn at the end of its teardown, after the durable
+  `session.endTurn` attempt. A turn is the one `session.beginTurn` created: a
+  user submission, an approved plan execution, or a scheduled run, and a queued
+  item that never started produces no event. `completed`, `aborted`, and
+  `error` are the three terminal reasons. The event carries the `turnId` the
+  terminal runtime event identified, not whichever turn happens to be active,
+  so a late event from an earlier turn cannot settle a newer one. Delivery is
+  fire-and-forget: there is no ack and no replay, so a plugin that is alive and
+  subscribed receives it once, and a delivery that races a plugin crash,
+  reload, or host quit is not guaranteed. Receiving it does **not** mean every
+  in-flight tool of that turn has exited — late results can still arrive — so a
+  plugin must serialise or otherwise scope its cleanup by `turnId`. The event
+  also needs no new permission: it travels on the existing event channel, and
+  subscribing to an unknown event name does not error. Only host 0.14.7 and
+  later emit it, so a plugin that depends on it must require that minimum host
+  version.
 
 A throwing handler is logged and does not affect other listeners or the plugin.
 
@@ -642,6 +663,8 @@ Delivered today:
   the app's palette or language changes, so a panel can restyle and relabel live.
 - `workspace:changed` — payload is `{ path: string; name: string } | null`,
   matching `workspace.get()`, sent when the open project changes.
+- `session:turnEnded` — the same payload as the plugin-process event in §5,
+  sent when a host turn reaches a terminal state.
 
 ## 7. Call auditing
 

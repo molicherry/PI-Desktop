@@ -192,6 +192,9 @@ type ToolExecContext = {
 }
 ```
 
+`turnId` 对宿主驱动的 turn 会被填充，并与对应的 `session:turnEnded` 事件（§5）的
+`turnId` 一致。
+
 ### models（需要 `models.list`）
 ```ts
 pi.models.list(): Promise<PluginModelInfo[]>
@@ -497,6 +500,19 @@ pi.events.off(event, handler)
 - `plugin:settingsChanged`（由插件设置页面编辑触发）
 - `session:modelChanged` — `{ sessionId, modelKey, thinkingLevel }`，在成功的
   `session.configure` 改变 provider、模型或 thinking level 之后发送
+- `session:turnEnded` —— 载荷为
+  `{ sessionId: string; turnId: string; reason: "completed" | "aborted" | "error" }`，
+  在每个宿主 turn 的拆除结束时发送一次，位于持久化的 `session.endTurn` 尝试之后。
+  “turn”指 `session.beginTurn` 创建的那个 turn：一次用户提交、一次已批准的计划执行、
+  或一次定时运行；排队但从未开始的项目不会产生事件。`completed`、`aborted`、`error`
+  是三种终止原因。事件携带终止运行时事件本身标识的 `turnId`，而不是恰好处于活动
+  状态的那个 turn，因此来自更早 turn 的迟到事件不会结算更新的 turn。投递是
+  即发即忘：没有 ack，也没有重放，因此存活的已订阅插件只收到一次；与插件崩溃、
+  重载或宿主退出竞态的投递不作保证。收到该事件**并不**意味着该 turn 的所有在途
+  工具都已退出——迟到结果仍可能到达——因此插件必须按 `turnId` 串行化或以其他方式
+  限定清理范围。该事件同样不需要新权限：它走既有的插件事件通道，订阅未知的事件名
+  也不会报错。只有 0.14.7 及以上的宿主会发出该事件，因此依赖它的插件必须声明该
+  最低宿主版本。
 
 抛出的处理程序会被记录下来，并且不会影响其他侦听器或插件。
 
@@ -552,6 +568,8 @@ window.pluginBridge.on(event, handler)
   语言发生变化时发送，因此面板可以实时重新着色和重新标注文案。
 - `workspace:changed` —— 载荷为 `{ path: string; name: string } | null`，
   与 `workspace.get()` 一致，在打开的项目变化时发送。
+- `session:turnEnded` —— 与 §5 的插件进程事件同一载荷，在宿主 turn 到达终止状态
+  时发送。
 
 ## 7. 通话审计
 

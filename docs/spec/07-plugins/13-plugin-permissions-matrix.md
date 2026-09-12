@@ -95,6 +95,10 @@ plugin, so it carries three bounds the other modes do not:
   (`themes`, `mcpServers`, `services`, `bus`); `skills` is the exception and is
   skipped at load time instead (see
   [02-plugin-manifest-schema.md](02-plugin-manifest-schema.md) §7)
+- Lifecycle and state events need no permission: `workspace:changed`,
+  `session:modelChanged`, `session:turnEnded`, and `plugin:settingsChanged`
+  arrive on the existing plugin event channel, and subscribing to an unknown
+  event name does not error
 
 ## 3A. Plan operating-state rule
 
