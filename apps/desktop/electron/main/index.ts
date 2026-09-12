@@ -2407,10 +2407,28 @@ const turnSettlements = new Map<string, Set<() => void>>();
 const turnFinalizations = new Map<string, Promise<void>>();
 /**
  * Turn identities that have already produced a `session:turnEnded` event.
- * The end event is host-scoped, one per actually started turn; entries are
- * dropped when the turn's local state is released so the set stays bounded.
+ * A turn can deliver more than one terminal event (an abort is followed by an
+ * `agent_end`), and the runtime does not guarantee their order, so the marker
+ * has to outlive turn teardown to keep the once-per-turn promise. It is kept
+ * bounded by age and size instead of by releasing it with the turn.
  */
-const announcedTurns = new Set<string>();
+const announcedTurns = new Map<string, number>();
+
+const ANNOUNCED_TURN_TTL_MS = 30 * 60 * 1000;
+const ANNOUNCED_TURN_LIMIT = 4096;
+
+function pruneAnnouncedTurns(now: number): void {
+  if (announcedTurns.size === 0) return;
+  for (const [key, at] of announcedTurns) {
+    if (now - at > ANNOUNCED_TURN_TTL_MS) announcedTurns.delete(key);
+  }
+  // A burst of turns inside the TTL window still has to stay bounded.
+  while (announcedTurns.size > ANNOUNCED_TURN_LIMIT) {
+    const oldest = announcedTurns.keys().next();
+    if (oldest.done) break;
+    announcedTurns.delete(oldest.value);
+  }
+}
 
 /** Composite identity for one host turn. Falls back to the session when a
  *  caller predates turn tracking, which keeps legacy paths working. */
@@ -2435,9 +2453,11 @@ function announceTurnEnded(
   turnId: string,
   reason: "completed" | "aborted" | "error",
 ): void {
+  const now = Date.now();
+  pruneAnnouncedTurns(now);
   const key = turnKey(sessionId, turnId);
   if (announcedTurns.has(key)) return;
-  announcedTurns.add(key);
+  announcedTurns.set(key, now);
   const payload = { sessionId, turnId, reason };
   // Both surfaces are best-effort: a failure to reach plugins or a panel must
   // never block the rest of turn teardown.
@@ -2458,14 +2478,21 @@ function announceTurnEnded(
     });
   }
 }
-
-/** Lock the terminal reason for an active turn before any async cancel work,
- *  so a later `agent_end` cannot restate an abort as a completion. */
+/**
+ * Locked terminal reason per turn. Recorded before an abort issues its cancel
+ *  so a later `agent_end` cannot restate an abort as a completion.
+ *
+ *  The lock is consumed by `takeAbortReason`. It deliberately outlives turn
+ *  teardown, because the terminal event it guards may arrive after the abort
+ *  request has already finalized; leftovers are bounded by `takeAbortReason`
+ *  consuming them and by the turn id being unique per turn.
+ */
 const pendingAbortReasons = new Map<string, "aborted">();
 
 function lockAbortReason(sessionId: string, turnId?: string): void {
   const active = turnId ?? activeTurns.get(sessionId);
   if (!active || !isActiveTurn(sessionId, active)) return;
+  if (pendingAbortReasons.size > ANNOUNCED_TURN_LIMIT) pendingAbortReasons.clear();
   pendingAbortReasons.set(turnKey(sessionId, active), "aborted");
 }
 
@@ -2473,7 +2500,9 @@ function takeAbortReason(
   sessionId: string,
   turnId?: string,
 ): "aborted" | undefined {
-  const key = turnKey(sessionId, turnId);
+  // Mirror the lock's key resolution: a terminal envelope without a turn id
+  // must still honour a reason locked for the session's active turn.
+  const key = turnKey(sessionId, turnId ?? activeTurns.get(sessionId));
   if (!pendingAbortReasons.has(key)) return undefined;
   pendingAbortReasons.delete(key);
   return "aborted";
@@ -5313,8 +5342,12 @@ function finishTurn(
         const createNotification =
           options.createNotification ??
           (!wasPlanSubmission && shouldCreateTaskNotification(sessionId));
-        const turnUsage = activeTurnUsages.get(sessionId);
-        activeTurnUsages.delete(sessionId);
+        // Usage and the scheduled run are session-keyed, so only the turn that
+        // still owns the session may settle them. A late terminal event for an
+        // older turn must not steal the newer turn's usage or close its run.
+        const ownsSession = activeTurns.get(sessionId) === turnId;
+        const turnUsage = ownsSession ? activeTurnUsages.get(sessionId) : undefined;
+        if (ownsSession) activeTurnUsages.delete(sessionId);
         try {
           const result = await host.call<{
             ok: boolean;
@@ -5353,7 +5386,9 @@ function finishTurn(
         }
       }
 
-      const runId = scheduledRunsBySession.get(sessionId);
+      // Same ownership rule as usage: a session-keyed run is closed only by the
+      // turn that still owns the session, so a late event cannot end it early.
+      const runId = ownsSession ? scheduledRunsBySession.get(sessionId) : undefined;
       if (runId) {
         scheduledRunsBySession.delete(sessionId);
         if (host) {
@@ -5372,12 +5407,6 @@ function finishTurn(
       // until the durable endTurn request has settled above.
       if (turnId && activeTurns.get(sessionId) === turnId) {
         activeTurns.delete(sessionId);
-      }
-      if (turnId) {
-        // Bound the once-per-turn set to turns that are still live, and drop
-        // any locked abort reason now that the turn is settled.
-        announcedTurns.delete(turnKey(sessionId, turnId));
-        pendingAbortReasons.delete(turnKey(sessionId, turnId));
       }
       if (planKey) {
         planSubmissionTurnIds.delete(planKey);

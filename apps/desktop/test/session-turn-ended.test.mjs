@@ -37,13 +37,20 @@ test("turn end payload carries session, turn and terminal reason", () => {
 
 // Once per turn, and only once: the guard set is keyed by the full turn
 // identity, and every terminal reason funnels through the same key.
+// Once per turn, and only once. A turn can deliver more than one terminal
+// event (an abort is followed by an agent_end) and their order is not
+// guaranteed, so the marker must outlive teardown and be bounded by policy.
 test("turn end is emitted at most once per turn identity", () => {
-  assert.match(main, /const announcedTurns = new Set<string>\(\);/);
+  assert.match(main, /const announcedTurns = new Map<string, number>\(\);/);
   assert.match(main, /function turnKey\(sessionId: string, turnId\?: string\)/);
   assert.match(main, /if \(announcedTurns\.has\(key\)\) return;/);
-  assert.match(main, /announcedTurns\.add\(key\);/);
-  // Bounded: released with the turn's local state rather than kept forever.
-  assert.match(main, /announcedTurns\.delete\(turnKey\(sessionId, turnId\)\)/);
+  assert.match(main, /announcedTurns\.set\(key, now\);/);
+  // Bounded by age and size rather than released with the turn, which would
+  // reopen the duplicate window the guard exists to close.
+  assert.match(main, /const ANNOUNCED_TURN_TTL_MS = /);
+  assert.match(main, /const ANNOUNCED_TURN_LIMIT = /);
+  assert.match(main, /pruneAnnouncedTurns\(now\);/);
+  assert.doesNotMatch(main, /announcedTurns\.delete\(turnKey\(sessionId, turnId\)\)/);
 });
 
 // Identity comes from the terminal event, not from whichever turn is active,
@@ -56,6 +63,39 @@ test("turn finalization keys dedup by (sessionId, turnId)", () => {
   assert.match(main, /turnFinalizations\.delete\(finalizationKey\)/);
   // Terminal events pass the identity they were delivered with.
   assert.match(main, /\{ turnId: envelope\.turnId \}/);
+});
+
+// Session-keyed state must not be settled by a turn that no longer owns the
+// session, or a late event for an old turn steals the new turn's usage and
+// closes its scheduled run.
+test("session-keyed side effects are gated on turn ownership", () => {
+  assert.match(main, /const ownsSession = activeTurns\.get\(sessionId\) === turnId;/);
+  assert.match(
+    main,
+    /const turnUsage = ownsSession \? activeTurnUsages\.get\(sessionId\) : undefined;/,
+  );
+  assert.match(main, /if \(ownsSession\) activeTurnUsages\.delete\(sessionId\);/);
+  assert.match(
+    main,
+    /const runId = ownsSession \? scheduledRunsBySession\.get\(sessionId\) : undefined;/,
+  );
+});
+
+// The locked abort reason must survive its own finalizer, because the terminal
+// event it guards can arrive after that finalization already settled.
+test("abort reason outlives turn teardown and is consumed on read", () => {
+  assert.match(main, /pendingAbortReasons\.set\(turnKey\(sessionId, active\), "aborted"\);/);
+  assert.match(main, /pendingAbortReasons\.delete\(key\);\n\s*return "aborted";/);
+  assert.doesNotMatch(
+    main,
+    /finally \{[\s\S]{0,600}?pendingAbortReasons\.delete/,
+  );
+  // The lock and the read resolve the key the same way, including the
+  // active-turn fallback for a terminal event that carries no turn id.
+  assert.match(
+    main,
+    /const key = turnKey\(sessionId, turnId \?\? activeTurns\.get\(sessionId\)\);/,
+  );
 });
 
 // An abort locks its reason before the cancel RPC awaits, so an agent_end that
