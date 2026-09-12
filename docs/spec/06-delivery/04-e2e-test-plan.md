@@ -10236,6 +10236,30 @@ sample extensions under `apps/desktop/test/fixtures/pi-extensions/`.
   Escape and outside click dismiss the menu.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md`
 - **Acceptance**: Quality (navigation and accessibility)
+
+#### E2E-257: A plugin observes exactly one turn-end event per host turn
+
+- **Preconditions**: A plugin with a tool and an event listener for
+  `session:turnEnded` is loaded and enabled; its panel records each received
+  payload and the `turnId` its tool receives through the tool context.
+- **Steps**:
+  1. Submit a prompt whose reply issues three tool calls in one turn.
+  2. Record the number of `session:turnEnded` payloads the plugin receives and
+     compare the `turnId` with the one the plugin's tool saw.
+  3. Submit another prompt, then stop it with `Cmd/Ctrl + .`.
+  4. Submit a third prompt that fails, so the turn ends with an error.
+  5. Inspect the Plugins settings page for a new permission review.
+- **Expected**: Step 2 receives exactly one `session:turnEnded` whose `reason`
+  is `completed`, and its `turnId` equals the tool context's `turnId`. Step 3
+  receives exactly one event with `reason` `aborted` — never a second
+  `completed` after the abort. Step 4 receives exactly one event with `reason`
+  `error`. A turn that never started emits nothing, and no plugin receives two
+  events for one turn even when the terminal event arrives more than once.
+  Step 5 shows no new permission review, and subscribing to an unknown event
+  name does not surface an error.
+- **Specs linked**: `07-plugins/03-plugin-api.md`, `07-plugins/13-plugin-permissions-matrix.md`,
+  ADR 0233
+- **Acceptance**: Quality (protocol and plugin contract)
 - **Milestone**: M5
 - **Status**: Unit-covered (`home-project-switcher.test.mjs`,
   `git-clone.test.mjs`, `sidebar-preferences.test.mjs`); full UI scenario Draft

@@ -6556,3 +6556,18 @@ IPC 请求无法关闭。
 - **验收**：C（对话与流）、本地化、品质
 - **里程碑**：M2
 - **状态**：单元覆盖（`packages/shared/src/composer-trigger.test.ts`、`apps/desktop/test/composer-ime.test.mjs`）；渲染桌面旅程为草稿（除非明确要求，不本地运行 E2E）
+
+#### E2E-257：每个宿主回合只产生一次回合结束事件
+
+- **前置条件**：已加载并启用一个带工具、且监听 `session:turnEnded` 的插件；其面板记录每次收到的载荷，以及工具通过工具上下文拿到的 `turnId`。
+- **步骤**：
+  1. 发送一条提示，使回复在同一个回合内发起三次工具调用。
+  2. 记录插件收到多少次 `session:turnEnded`，并把其中的 `turnId` 与该插件工具收到的 `turnId` 对比。
+  3. 再发一条提示，然后用 `Cmd/Ctrl + .` 中止它。
+  4. 再发一条会失败的提示，使回合以错误结束。
+  5. 在插件设置页检查是否出现新的权限复核。
+- **预期**：步骤 2 只收到一次 `session:turnEnded`，`reason` 为 `completed`，且其 `turnId` 与工具上下文的 `turnId` 相同。步骤 3 只收到一次事件且 `reason` 为 `aborted` —— 中止之后不会再出现第二次 `completed`。步骤 4 只收到一次事件且 `reason` 为 `error`。从未开始的回合不产生事件；即使终态事件到达多次，任何插件也不会在同一回合收到两次事件。步骤 5 不出现新的权限复核，订阅未知事件名也不会报错。
+- **链接规格**：`07-plugins/03-plugin-api.md`、`07-plugins/13-plugin-permissions-matrix.md`、ADR 0233
+- **验收**：品质（协议与插件契约）
+- **状态**：源码契约覆盖（`apps/desktop/test/session-turn-ended.test.mjs`）；渲染桌面旅程为草稿（除非明确要求，不本地运行 E2E）
+
