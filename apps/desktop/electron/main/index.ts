@@ -2465,7 +2465,17 @@ const PENDING_ABORT_REASON_LIMIT = 4096;
 function lockAbortReason(sessionId: string, turnId?: string): void {
   const active = turnId ?? activeTurns.get(sessionId);
   if (!active || !isActiveTurn(sessionId, active)) return;
-  if (pendingAbortReasons.size > PENDING_ABORT_REASON_LIMIT) pendingAbortReasons.clear();
+  // Only stale entries may be dropped: clearing the whole map would let another
+  // session's cancelled turn look cancellable again.
+  if (pendingAbortReasons.size > PENDING_ABORT_REASON_LIMIT) {
+    for (const key of [...pendingAbortReasons.keys()]) {
+      // `turnKey` joins two UUIDs with a colon, so the first colon splits them.
+      const cut = key.indexOf(":");
+      if (activeTurns.get(key.slice(0, cut)) !== key.slice(cut + 1)) {
+        pendingAbortReasons.delete(key);
+      }
+    }
+  }
   pendingAbortReasons.set(turnKey(sessionId, active), "aborted");
 }
 
@@ -4979,8 +4989,9 @@ const planUiProbe = createPlanUiProbe({
 
 /**
  * A terminal event for a turn that no longer owns its session must not clear
- * the current turn's state in the Agent Host or the renderer. Events without a
- * turn id, and sessions with no active turn, keep the legacy path.
+ * the current turn's state in the Agent Host or the renderer. A terminal event
+ * carrying no turn id cannot be attributed to any turn, so it is blocked for
+ * the same reason; message and tool rows are still persisted as history.
  */
 function isStaleTerminalEvent(envelope: AgentEventEnvelope): boolean {
   if (envelope.event.type !== "agent_end" && envelope.event.type !== "error") {
@@ -5044,18 +5055,24 @@ function wireSidecar(s: AgentSidecar) {
     // sidecar starts. This prevents an old renderer response from waking a
     // dead runtime and records the durable turn as interrupted.
     for (const sessionId of [...activeTurns.keys()]) {
+      // Snapshot the turn this cleanup belongs to before the awaits below: the
+      // session can start a new turn while this one is still unwinding, and a
+      // late cleanup must not settle or abort that newer turn.
+      const crashedTurnId = activeTurns.get(sessionId);
       void (async () => {
         const executionId = approvedExecutionIdsBySession.get(sessionId);
         if (host) {
           await host.call("plans.abort", { sessionId }).catch(() => undefined);
         }
+        // A newer turn may own the session by now; this cleanup is the old one's.
+        if (activeTurns.get(sessionId) !== crashedTurnId) return;
         // No final row is coming from a dead sidecar: keep whatever the reply
         // had streamed so far as an aborted transcript row (D299).
         await inflightCheckpointer.flush(sessionId);
         inflightCheckpointer.settle(sessionId);
         await finishTurn(sessionId, "aborted", "PLAN_APPROVAL_INTERRUPTED", {
           recoverInflight: true,
-          turnId: activeTurns.get(sessionId),
+          turnId: crashedTurnId,
         });
         if (executionId) {
           await finishApprovedExecution(
@@ -8353,13 +8370,19 @@ function registerIpc() {
       // Host-owned cut: the kept prefix never crosses the JSON-RPC pipe
       // (issue #211). Abort any leftover running turn first so beginTurn
       // cannot see AGENT_BUSY after a timed-out retry.
+      //
+      // Capture the target turn and lock the abort reason before the cancel
+      // request, as the plain abort path does: a terminal event arriving while
+      // the request is in flight must not restate this abort as a completion.
+      const regenerateTurnId = activeTurns.get(req.sessionId);
+      lockAbortReason(req.sessionId, regenerateTurnId);
       if (sidecar) {
         await sidecar
           .call("agent.abort", { sessionId: req.sessionId })
           .catch(() => undefined);
       }
       await finishTurn(req.sessionId, "aborted", "TURN_ABORTED", {
-        turnId: activeTurns.get(req.sessionId),
+        turnId: regenerateTurnId,
       });
 
       try {
