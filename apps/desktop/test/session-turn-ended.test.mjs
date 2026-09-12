@@ -20,12 +20,15 @@ const [main, pluginRuntime, pluginHost, sidecar, rpcMod, toolsMod, apiEn, apiZh]
 // its terminal state, so that is where the announcement belongs.
 test("turn end is announced from the single turn finalizer", () => {
   assert.match(main, /function announceTurnEnded\(/);
-  assert.match(
-    main,
-    /announceTurnEnded\(sessionId, turnId, status\);/,
+  // Announced from the finalizer's `finally`: a failing persistence step above
+  // must not be able to suppress it, and local ownership is already released.
+  const finalizer = main.slice(main.indexOf("function finishTurn("));
+  const finallyAt = finalizer.indexOf("} finally {");
+  const announceAt = finalizer.indexOf(
+    "announceTurnEnded(sessionId, turnId, status);",
   );
-  // Guarded on identity: a session with no live turn announces nothing.
-  assert.match(main, /if \(turnId\) \{\s*\n\s*announceTurnEnded\(/);
+  assert.ok(finallyAt > -1, "the finalizer must release local state in a finally");
+  assert.ok(announceAt > finallyAt, "the announcement must run inside the finally");
 });
 
 test("turn end payload carries session, turn and terminal reason", () => {
@@ -35,28 +38,25 @@ test("turn end payload carries session, turn and terminal reason", () => {
   assert.match(main, /broadcastPluginPanelEvent\("session:turnEnded", payload\)/);
 });
 
-// Once per turn, and only once: the guard set is keyed by the full turn
-// identity, and every terminal reason funnels through the same key.
-// Once per turn, and only once. A turn can deliver more than one terminal
-// event (an abort is followed by an agent_end) and their order is not
-// guaranteed, so the marker must outlive teardown and be bounded by policy.
+// Once per turn, and only once. A turn can deliver more than one terminal event
+// (an abort is followed by an agent_end), so the finalizer refuses to run for a
+// turn that no longer owns its session and shares one finalization per
+// (sessionId, turnId). No marker outlives the turn: an expiring one re-announced
+// the same turn once its TTL elapsed.
 test("turn end is emitted at most once per turn identity", () => {
-  assert.match(main, /const announcedTurns = new Map<string, number>\(\);/);
   assert.match(main, /function turnKey\(sessionId: string, turnId\?: string\)/);
-  assert.match(main, /if \(announcedTurns\.has\(key\)\) return;/);
-  assert.match(main, /announcedTurns\.set\(key, now\);/);
-  // Bounded by age and size rather than released with the turn, which would
-  // reopen the duplicate window the guard exists to close.
-  assert.match(main, /const ANNOUNCED_TURN_TTL_MS = /);
-  assert.match(main, /const ANNOUNCED_TURN_LIMIT = /);
-  assert.match(main, /pruneAnnouncedTurns\(now\);/);
-  assert.doesNotMatch(main, /announcedTurns\.delete\(turnKey\(sessionId, turnId\)\)/);
+  assert.match(main, /if \(!turnId \|\| !isActiveTurn\(sessionId, turnId\)\) return;/);
+  assert.doesNotMatch(
+    main,
+    /announcedTurns|ANNOUNCED_TURN_TTL_MS|ANNOUNCED_TURN_LIMIT|pruneAnnouncedTurns/,
+  );
 });
 
 // Identity comes from the terminal event, not from whichever turn is active,
 // so a late event for an earlier turn cannot settle a newer one.
 test("turn finalization keys dedup by (sessionId, turnId)", () => {
-  assert.match(main, /const turnId = options\.turnId \?\? activeTurns\.get\(sessionId\);/);
+  assert.match(main, /const turnId = options\.turnId;/);
+  assert.doesNotMatch(main, /options\.turnId \?\? activeTurns\.get\(sessionId\)/);
   assert.match(main, /const finalizationKey = turnKey\(sessionId, turnId\);/);
   assert.match(main, /turnFinalizations\.get\(finalizationKey\)/);
   assert.match(main, /turnFinalizations\.set\(finalizationKey, finalization\)/);

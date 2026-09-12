@@ -2405,30 +2405,6 @@ const inFlightExecutionFinishes = new Set<string>();
 let approvedExecutionDrain: Promise<void> | null = null;
 const turnSettlements = new Map<string, Set<() => void>>();
 const turnFinalizations = new Map<string, Promise<void>>();
-/**
- * Turn identities that have already produced a `session:turnEnded` event.
- * A turn can deliver more than one terminal event (an abort is followed by an
- * `agent_end`), and the runtime does not guarantee their order, so the marker
- * has to outlive turn teardown to keep the once-per-turn promise. It is kept
- * bounded by age and size instead of by releasing it with the turn.
- */
-const announcedTurns = new Map<string, number>();
-
-const ANNOUNCED_TURN_TTL_MS = 30 * 60 * 1000;
-const ANNOUNCED_TURN_LIMIT = 4096;
-
-function pruneAnnouncedTurns(now: number): void {
-  if (announcedTurns.size === 0) return;
-  for (const [key, at] of announcedTurns) {
-    if (now - at > ANNOUNCED_TURN_TTL_MS) announcedTurns.delete(key);
-  }
-  // A burst of turns inside the TTL window still has to stay bounded.
-  while (announcedTurns.size > ANNOUNCED_TURN_LIMIT) {
-    const oldest = announcedTurns.keys().next();
-    if (oldest.done) break;
-    announcedTurns.delete(oldest.value);
-  }
-}
 
 /** Composite identity for one host turn. Falls back to the session when a
  *  caller predates turn tracking, which keeps legacy paths working. */
@@ -2445,19 +2421,14 @@ function isActiveTurn(sessionId: string, turnId?: string): boolean {
 
 /**
  * Tell loaded plugins and the plugin surfaces that a host turn reached a
- * terminal state. Sent once per turn: dispatch, persistence, and any later
- * duplicate terminal event all funnel through the same key.
+ * terminal state. Every terminal path funnels through `finishTurn`, which runs
+ * only while `activeTurns` still names the turn, so this fires once per turn.
  */
 function announceTurnEnded(
   sessionId: string,
   turnId: string,
   reason: "completed" | "aborted" | "error",
 ): void {
-  const now = Date.now();
-  pruneAnnouncedTurns(now);
-  const key = turnKey(sessionId, turnId);
-  if (announcedTurns.has(key)) return;
-  announcedTurns.set(key, now);
   const payload = { sessionId, turnId, reason };
   // Both surfaces are best-effort: a failure to reach plugins or a panel must
   // never block the rest of turn teardown.
@@ -2488,11 +2459,13 @@ function announceTurnEnded(
  *  consuming them and by the turn id being unique per turn.
  */
 const pendingAbortReasons = new Map<string, "aborted">();
+/** Upper bound on locks left behind by a turn whose terminal event never came. */
+const PENDING_ABORT_REASON_LIMIT = 4096;
 
 function lockAbortReason(sessionId: string, turnId?: string): void {
   const active = turnId ?? activeTurns.get(sessionId);
   if (!active || !isActiveTurn(sessionId, active)) return;
-  if (pendingAbortReasons.size > ANNOUNCED_TURN_LIMIT) pendingAbortReasons.clear();
+  if (pendingAbortReasons.size > PENDING_ABORT_REASON_LIMIT) pendingAbortReasons.clear();
   pendingAbortReasons.set(turnKey(sessionId, active), "aborted");
 }
 
@@ -4843,18 +4816,29 @@ function wireHost(h: HostProcess) {
                 // Executor identity is best-effort; the tool can still run.
               }
             }
-            const result = await tool.execute(q.args, {
-              sessionId: q.sessionId,
-              mode: sessionMode,
-              modelKey,
-              thinkingLevel,
-              turnId: q.turnId,
-            });
-            payload = {
-              executionId: q.executionId,
-              ok: true,
-              content: result ?? null,
-            };
+            // Last synchronous gate before dispatch: a turn cancelled during
+            // the session.get await above must not start a plugin side effect.
+            if (q.turnId && activeTurns.get(q.sessionId ?? "") !== q.turnId) {
+              payload = {
+                executionId: q.executionId,
+                ok: false,
+                errorCode: "TOOL_TURN_CANCELLED",
+                content: { error: `turn ${q.turnId} is no longer active` },
+              };
+            } else {
+              const result = await tool.execute(q.args, {
+                sessionId: q.sessionId,
+                mode: sessionMode,
+                modelKey,
+                thinkingLevel,
+                turnId: q.turnId,
+              });
+              payload = {
+                executionId: q.executionId,
+                ok: true,
+                content: result ?? null,
+              };
+            }
           } catch (e) {
             const code =
               e && typeof e === "object" && "code" in e && typeof e.code === "string"
@@ -4966,8 +4950,24 @@ const planUiProbe = createPlanUiProbe({
   logger,
 });
 
+/**
+ * A terminal event for a turn that no longer owns its session must not clear
+ * the current turn's state in the Agent Host or the renderer. Events without a
+ * turn id, and sessions with no active turn, keep the legacy path.
+ */
+function isStaleTerminalEvent(envelope: AgentEventEnvelope): boolean {
+  if (envelope.event.type !== "agent_end" && envelope.event.type !== "error") {
+    return false;
+  }
+  const active = activeTurns.get(envelope.sessionId);
+  return Boolean(active && envelope.turnId && active !== envelope.turnId);
+}
+
 /** Fan an agent event out to the renderer and the headless Agent Host module. */
 function emitAgentEvent(envelope: AgentEventEnvelope) {
+  // Persistence is a separate call made by the caller, so dropping the event
+  // here still archives it as history while its state effects are blocked.
+  if (isStaleTerminalEvent(envelope)) return;
   agentHostBridge?.ingest(envelope);
   sendToRenderer(IPC.event.agentMessage, envelope);
 }
@@ -5318,18 +5318,28 @@ function finishTurn(
     recoverInflight?: boolean;
     /**
      * Identity of the turn this terminal event belongs to. Callers that hold a
-     * runtime event must pass its `turnId`; omission falls back to the session's
-     * active turn for paths that predate turn tracking.
+     * runtime event must pass its `turnId`; it is never inferred from whichever
+     * turn happens to be active.
      */
     turnId?: string;
   } = {},
 ): Promise<void> {
-  const turnId = options.turnId ?? activeTurns.get(sessionId);
+  // A terminal event without an identity would otherwise settle whichever turn
+  // is active, and a late event for an older turn would settle the newer one.
+  const turnId = options.turnId;
+  if (!turnId || !isActiveTurn(sessionId, turnId)) return;
   const finalizationKey = turnKey(sessionId, turnId);
   const existing = turnFinalizations.get(finalizationKey);
   if (existing) return existing;
 
   const finalization = (async () => {
+    // Ownership and the session-keyed side effects are snapshotted before the
+    // first await: only the turn that still owns the session may settle them,
+    // so a late finalization cannot steal a newer turn's usage or close its run.
+    const ownsSession = activeTurns.get(sessionId) === turnId;
+    const turnUsage = ownsSession ? activeTurnUsages.get(sessionId) : undefined;
+    if (ownsSession) activeTurnUsages.delete(sessionId);
+    const runId = ownsSession ? scheduledRunsBySession.get(sessionId) : undefined;
     const planKey = turnId
       ? planSubmissionTurnKey(sessionId, turnId)
       : undefined;
@@ -5342,12 +5352,6 @@ function finishTurn(
         const createNotification =
           options.createNotification ??
           (!wasPlanSubmission && shouldCreateTaskNotification(sessionId));
-        // Usage and the scheduled run are session-keyed, so only the turn that
-        // still owns the session may settle them. A late terminal event for an
-        // older turn must not steal the newer turn's usage or close its run.
-        const ownsSession = activeTurns.get(sessionId) === turnId;
-        const turnUsage = ownsSession ? activeTurnUsages.get(sessionId) : undefined;
-        if (ownsSession) activeTurnUsages.delete(sessionId);
         try {
           const result = await host.call<{
             ok: boolean;
@@ -5386,9 +5390,9 @@ function finishTurn(
         }
       }
 
-      // Same ownership rule as usage: a session-keyed run is closed only by the
-      // turn that still owns the session, so a late event cannot end it early.
-      const runId = ownsSession ? scheduledRunsBySession.get(sessionId) : undefined;
+      // The scheduled run is session-keyed too, so it is closed only by the turn
+      // that owns the session, and regardless of whether `host` was available
+      // for the endTurn attempt above.
       if (runId) {
         scheduledRunsBySession.delete(sessionId);
         if (host) {
@@ -5405,7 +5409,7 @@ function finishTurn(
     } finally {
       // Do not release local ownership or wake a queued approved execution
       // until the durable endTurn request has settled above.
-      if (turnId && activeTurns.get(sessionId) === turnId) {
+      if (activeTurns.get(sessionId) === turnId) {
         activeTurns.delete(sessionId);
       }
       if (planKey) {
@@ -5416,6 +5420,10 @@ function finishTurn(
           for (const resolve of waiters) resolve();
         }
       }
+      // Last step of teardown: a failed endTurn above must not be able to
+      // suppress the announcement, and the turn's local state is already
+      // released when it fires.
+      announceTurnEnded(sessionId, turnId, status);
     }
 
     if (turnId) {
@@ -5432,23 +5440,18 @@ function finishTurn(
         }
       }, 5 * 60 * 1000).unref();
     }
-
-    // The turn has reached a terminal state and can no longer dispatch or
-    // resume screen work, so announce it. This runs after the durable endTurn
-    // attempt (which may have failed) and before local ownership is released,
-    // so a plugin never waits on persistence to learn the turn is over.
-    if (turnId) {
-      announceTurnEnded(sessionId, turnId, status);
-    }
   })();
 
   turnFinalizations.set(finalizationKey, finalization);
   const releaseFinalization = () => {
     if (turnFinalizations.get(finalizationKey) === finalization) {
       turnFinalizations.delete(finalizationKey);
+      // The terminal event reaches Agent Host while activeTurns still owns
+      // this session. Retry its deferred queue drain once settlement releases
+      // both busy guards, unless the application is shutting down.
+      if (!quitting) agentHostBridge?.agentHost.kick(sessionId);
     }
   };
-  void finalization.then(releaseFinalization, releaseFinalization);
   void finalization.then(releaseFinalization, releaseFinalization);
   return finalization;
 }
@@ -8502,6 +8505,7 @@ function registerIpc() {
           (error as { errorCode?: string })?.errorCode,
         { turnId: activeTurns.get(req.sessionId) },
       );
+      throw error;
     }
     emitAgentEvent({
       sessionId: req.sessionId,

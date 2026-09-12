@@ -38,7 +38,17 @@ function fixture() {
     turnSettlements: new Map(),
     scheduledRunsBySession: new Map(),
     activeToolCalls: new Map(),
+    pendingAbortReasons: new Map(),
+    announcements: [],
     planSubmissionTurnKey: (sessionId, turnId) => `${sessionId}:${turnId}`,
+    turnKey: (sessionId, turnId) => `${sessionId}:${turnId ?? ""}`,
+    // Mirrors the module-level helper: a turn owns its session only while it is
+    // still the active turn.
+    isActiveTurn: (sessionId, turnId) =>
+      Boolean(turnId) && activeTurns.get(sessionId) === turnId,
+    announceTurnEnded: (sessionId, turnId, reason) => {
+      context.announcements.push({ sessionId, turnId, reason });
+    },
     shouldCreateTaskNotification: () => false,
     logger: { app() {} },
     setTimeout: () => ({ unref() {} }),
@@ -67,12 +77,20 @@ function fixture() {
   const bridge = createAgentHostBridge({
     channels: IPC.invoke,
     getHost: () => host,
-    isSessionBusy: (id) => activeTurns.has(id) || turnFinalizations.has(id),
+    isSessionBusy: (id) =>
+      activeTurns.has(id) ||
+      [...turnFinalizations.keys()].some((key) => key.startsWith(`${id}:`)),
     log() {},
     async invoke(channel, [request]) {
       assert.equal(channel, IPC.invoke.agentPrompt);
       assert.equal(activeTurns.has(request.sessionId), false, "previous turn must release ownership");
-      assert.equal(turnFinalizations.has(request.sessionId), false, "finalization must settle before dispatch");
+      assert.equal(
+        [...turnFinalizations.keys()].some((key) =>
+          key.startsWith(`${request.sessionId}:`),
+        ),
+        false,
+        "finalization must settle before dispatch",
+      );
       prompts.push(request);
       const turnId = `runtime-${prompts.length}`;
       activeTurns.set(request.sessionId, turnId);
@@ -93,7 +111,8 @@ function fixture() {
         ? { type: "error", error: { code: "PROVIDER_ERROR", message: "Fixture failure", retriable: false } }
         : { type: "agent_end", messageIds: [] },
     });
-    return finishTurn("s1", status);
+    // The finalizer only acts on an explicit turn identity.
+    return finishTurn("s1", status, undefined, { turnId });
   }
   return { bridge, context, activeTurns, turnFinalizations, persistedQueue, prompts, writes, finish, finishTurn };
 }
