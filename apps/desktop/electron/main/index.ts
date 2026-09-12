@@ -4669,7 +4669,8 @@ function wireHost(h: HostProcess) {
           toolName: string;
           args: unknown;
           mode?: string;
-        };
+          mode?: string;
+          turnId?: string;
         const projectPath = q.sessionId
           ? (sessionProjects.get(q.sessionId) ?? null)
           : null;
@@ -4745,6 +4746,7 @@ function wireHost(h: HostProcess) {
               mode: sessionMode,
               modelKey,
               thinkingLevel,
+              turnId: q.turnId,
             });
             payload = {
               executionId: q.executionId,

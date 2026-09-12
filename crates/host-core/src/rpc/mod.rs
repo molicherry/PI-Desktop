@@ -912,6 +912,10 @@ async fn execute_plugin_tool(
             "toolCallId": p.tool_call_id,
             "toolName": p.tool_name,
             "args": p.args,
+            // The runtime turn identity, forwarded unchanged so a plugin tool
+            // context can be matched against `session:turnEnded`. Absent for
+            // callers that predate turn tracking.
+            "turnId": p.turn_id,
             // Durable session mode, not the sidecar-supplied field: ADR 0052
             // forbids a conflicting sidecar mode from authorizing a tool
             // (ADR 0211).

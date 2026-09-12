@@ -99,6 +99,12 @@ export type RegisteredPluginTool = {
       mode?: "agent" | "plan" | "goal";
       modelKey?: string;
       thinkingLevel?: string;
+      /**
+       * Runtime turn identity for this tool call. Matches the `turnId` the host
+       * reports through `session:turnEnded`, so a plugin can scope resources
+       * (overlays, caches, helper sessions) to one host turn.
+       */
+      turnId?: string;
     },
   ) => Promise<unknown>;
 };
@@ -1765,6 +1771,7 @@ export class PluginRuntime {
                       name,
                       args: toolArgs,
                       sessionId,
+                      ...(ctx?.turnId ? { turnId: ctx.turnId } : {}),
                       modelKey: ctx?.modelKey,
                       thinkingLevel: ctx?.thinkingLevel,
                     },

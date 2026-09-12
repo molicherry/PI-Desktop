@@ -22,6 +22,11 @@ export type LocalToolResult = {
 
 export type LocalToolHandler = (input: {
   sessionId: string;
+  /**
+   * Runtime turn identity. Forwarded so a plugin tool's context carries the
+   * same `turnId` the host later reports through `session:turnEnded`.
+   */
+  turnId?: string;
   toolCallId: string;
   args: unknown;
 }) => Promise<LocalToolResult>;
@@ -507,6 +512,9 @@ export class AgentSidecar {
                 }
               : await this.runLocalTool(localTool, {
                   sessionId: String(params.sessionId ?? ""),
+                  ...(typeof params.turnId === "string" && params.turnId.trim()
+                    ? { turnId: params.turnId.trim() }
+                    : {}),
                   toolCallId: String(params.toolCallId ?? ""),
                   args: params.args,
                 });
