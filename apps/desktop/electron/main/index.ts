@@ -2484,6 +2484,25 @@ function takeAbortReason(
   pendingAbortReasons.delete(key);
   return "aborted";
 }
+
+/**
+ * Last synchronous gate before a plugin tool reaches the plugin process. A turn
+ * that is not the session's live turn, has an abort decision recorded, or is
+ * already finalizing must not start a plugin side effect. Callers must not
+ * await between this check and the dispatch.
+ */
+function isTurnDispatchable(
+  sessionId: string,
+  turnId: string | null | undefined,
+): boolean {
+  if (turnId == null) return false;
+  const key = turnKey(sessionId, turnId);
+  return (
+    activeTurns.get(sessionId) === turnId &&
+    !pendingAbortReasons.has(key) &&
+    !turnFinalizations.has(key)
+  );
+}
 /** sessionId -> last assistant usage recorded for active turn */
 const activeTurnUsages = new Map<string, MessageUsage>();
 
@@ -4824,13 +4843,7 @@ function wireHost(h: HostProcess) {
             // cancelled or started finalizing while the session read above was
             // awaited, and neither may start a plugin side effect. No await may
             // sit between this check and the dispatch.
-            const gateSessionId = q.sessionId ?? "";
-            const survivesGate =
-              q.turnId != null &&
-              activeTurns.get(gateSessionId) === q.turnId &&
-              !pendingAbortReasons.has(turnKey(gateSessionId, q.turnId)) &&
-              !turnFinalizations.has(turnKey(gateSessionId, q.turnId));
-            if (!survivesGate) {
+            if (!isTurnDispatchable(q.sessionId ?? "", q.turnId)) {
               payload = {
                 executionId: q.executionId,
                 ok: false,

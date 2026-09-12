@@ -37,7 +37,14 @@ const support = transpile(
   `${main.slice(helpersStart, helpersEnd)}\n${main.slice(abortStart, abortEnd)}`,
 );
 const finalizer = transpile(main.slice(start, end));
-const api = `${support}\n${finalizer}\n;({ finishTurn, takeAbortReason, lockAbortReason })`;
+const staleStart = main.indexOf("function isStaleTerminalEvent(");
+const staleEnd = main.indexOf("function emitAgentEvent(", staleStart);
+assert.ok(
+  staleStart >= 0 && staleEnd > staleStart,
+  "the delivery gate must be locatable",
+);
+const deliveryGate = transpile(main.slice(staleStart, staleEnd));
+const api = `${support}\n${deliveryGate}\n${finalizer}\n;({ finishTurn, isStaleTerminalEvent, isTurnDispatchable, lockAbortReason, takeAbortReason })`;
 
 /**
  * The finalizer is a closure over module state, so each case gets its own
@@ -92,6 +99,8 @@ function fixture({ active = new Map([["s1", "t1"]]), endTurn } = {}) {
     kicks,
     lockAbortReason: exposed.lockAbortReason,
     takeAbortReason: exposed.takeAbortReason,
+    isStaleTerminalEvent: exposed.isStaleTerminalEvent,
+    isTurnDispatchable: exposed.isTurnDispatchable,
   };
 }
 
@@ -193,4 +202,38 @@ test("a locked reason is consumed only by the turn that locked it", () => {
   f.lockAbortReason("s1", "t1");
   assert.equal(f.takeAbortReason("s1", "t2"), undefined, "another turn cannot take it");
   assert.equal(f.takeAbortReason("s1", "t1"), "aborted");
+});
+
+// The whole sequence, not just the lock helper: an abort accepted, an
+// unattributable terminal event arriving while the cancel request is still in
+// flight, a plugin tool dispatch attempt, then the turn's own terminal event.
+// This combination is what regressed when the delivery gate, the persistence
+// path and the dispatch gate were each fixed in isolation.
+test("a cancel survives an unattributable terminal event end to end", async () => {
+  const f = fixture();
+
+  // 1. The turn accepts an abort while its cancel request is in flight.
+  f.lockAbortReason("s1", "t1");
+
+  // 2. A terminal event with no turn identity arrives. It cannot be attributed
+  //    to the live turn, so delivery is blocked...
+  const unattributable = {
+    sessionId: "s1",
+    ts: Date.now(),
+    event: { type: "agent_end", messageIds: [] },
+  };
+  assert.equal(f.isStaleTerminalEvent(unattributable), true, "delivery is blocked");
+  // ...and the persistence path must not consume the lock either.
+  assert.equal(f.takeAbortReason("s1", undefined), undefined, "the lock survives");
+
+  // 3. A plugin tool for that turn therefore stays refused.
+  assert.equal(f.isTurnDispatchable("s1", "t1"), false, "dispatch stays refused");
+
+  // 4. The cancelled turn's own terminal event still reports the abort.
+  assert.equal(f.takeAbortReason("s1", "t1"), "aborted");
+  await f.finishTurn("s1", "aborted", "TURN_ABORTED", { turnId: "t1" });
+  assert.deepEqual(
+    f.announcements.map((a) => a.reason),
+    ["aborted"],
+  );
 });

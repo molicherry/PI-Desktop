@@ -149,6 +149,9 @@ test("api docs document the event, its limits and both locales", () => {
     assert.match(doc, /turnId/);
   }
   assert.match(apiEn, /aborted/);
+  // The no-replay limit is the honest part of the contract.
+  assert.match(apiEn, /replay|no replay|not replayed|fire-and-forget/i);
+});
 
 // A terminal event that cannot be attributed to the current turn must not reach
 // the Agent Host or the renderer, and a plugin dispatch must not start once the
@@ -158,15 +161,14 @@ test("both gates reject an event or dispatch that is not the live turn", () => {
     main,
     /return !envelope\.turnId \|\| active !== envelope\.turnId;/,
   );
+  // The dispatch gate is a named helper so the behavioural suite can execute it
+  // instead of only pattern-matching it here.
+  assert.match(main, /function isTurnDispatchable\(/);
+  assert.match(main, /activeTurns\.get\(sessionId\) === turnId &&/);
+  assert.match(main, /!pendingAbortReasons\.has\(key\)/);
+  assert.match(main, /!turnFinalizations\.has\(key\)/);
   assert.match(
     main,
-    /!pendingAbortReasons\.has\(turnKey\(gateSessionId, q\.turnId\)\)/,
+    /if \(!isTurnDispatchable\(q\.sessionId \?\? "", q\.turnId\)\)/,
   );
-  assert.match(
-    main,
-    /!turnFinalizations\.has\(turnKey\(gateSessionId, q\.turnId\)\)/,
-  );
-});
-  // The no-replay limit is the honest part of the contract.
-  assert.match(apiEn, /replay|no replay|not replayed|fire-and-forget/i);
 });
