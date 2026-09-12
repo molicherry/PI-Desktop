@@ -2444,7 +2444,7 @@ function announceTurnEnded(
   try {
     plugins.broadcastEvent("session:turnEnded", [payload]);
   } catch (e) {
-    logger.app("plugins", "warn", "turnEnded plugin broadcast failed", {
+    logger.app("plugin", "warn", "turnEnded plugin broadcast failed", {
       sessionId,
       data: String(e),
     });
@@ -2452,7 +2452,7 @@ function announceTurnEnded(
   try {
     broadcastPluginPanelEvent("session:turnEnded", payload);
   } catch (e) {
-    logger.app("plugins", "warn", "turnEnded panel broadcast failed", {
+    logger.app("plugin", "warn", "turnEnded panel broadcast failed", {
       sessionId,
       data: String(e),
     });
