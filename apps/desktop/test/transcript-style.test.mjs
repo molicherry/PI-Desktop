@@ -325,8 +325,42 @@ test("streaming assistant turns hide answer copy until idle", () => {
 test("assistant context inspector keeps a compact summary and retry action wired", () => {
   assert.match(transcriptSource, /function MessageMeta/);
   assert.match(transcriptSource, /message-meta-chip/);
+  // The per-reply readout is one compact line that opens a card: the prompt's
+  // send time stays under the prompt, everything else belongs to the answer.
+  for (const key of [
+    "chat.timingSent",
+    "chat.timingElapsed",
+    "chat.timingElapsedLabel",
+    "chat.timingFirstTokenLabel",
+  ]) {
+    assert.match(transcriptSource, new RegExp(`t\\("${key}"`));
+  }
+  for (const key of [
+    "chat.replyUsageLabel",
+    "chat.replyUsageTitle",
+    "chat.replyUsageProvider",
+    "chat.usageUncachedInput",
+    "chat.usageOutput",
+    "chat.usageCacheRead",
+    "chat.usageCacheRate",
+    "chat.replyUsageReasoningSuffix",
+    "chat.usageThroughput",
+    "chat.usageThroughputEstimated",
+    "chat.durationHours",
+    "chat.durationMinutes",
+    "chat.durationSeconds",
+    "chat.tokenUnit",
+  ]) {
+    assert.match(transcriptSource, new RegExp(`t\\("${key}"`));
+  }
+  assert.match(transcriptSource, /className="reply-usage-trigger"/);
+  assert.match(transcriptSource, /className="reply-usage-card/);
+  assert.match(transcriptSource, /className="reply-usage-segment"/);
+  assert.match(transcriptSource, /aria-haspopup="dialog"/);
+  assert.match(transcriptSource, /className="message-sent-at"/);
+  assert.match(transcriptSource, /calculateCacheRate/);
+  assert.match(transcriptSource, /createPortal/);
   assert.doesNotMatch(transcriptSource, /ContextUsageInspector/);
-  assert.match(transcriptSource, /showThroughput/);
   assert.match(composerSource, /latest-turn-context/);
   assert.match(composerSource, /latestTurnContextInspector/);
   assert.match(composerSource, /sessionCompactions/);

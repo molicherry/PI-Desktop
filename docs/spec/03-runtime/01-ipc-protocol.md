@@ -892,6 +892,7 @@ type UiMessage = {
  thinking?: string; // assistant reasoning, never folded into content
  usage?: MessageUsage; // provider-reported assistant usage
  responseDurationMs?: number; // model stream duration for throughput
+responseFirstTokenMs?: number; // wait from the provider request to the first streamed token
  responseOutputTokens?: number; // estimated partial output when stop has no final usage
  toolName?: string;
  toolCallId?: string;
@@ -951,9 +952,9 @@ for the reserved `Alt+Space` binding. Host-core emits the notification
 `keyboard.shortcut({ binding: "Alt+Space" })` when its low-level Windows
 keyboard hook detects the chord; the hook consumes that chord so the active
 window system menu does not open. Non-Windows hosts treat the method as a
-no-op. `responseDurationMs` and `responseOutputTokens` are optional transcript
-  metadata persisted in message metadata, so protocol v11 and storage schema v16
-remain unchanged.
+no-op. `responseDurationMs`, `responseOutputTokens`, and
+`responseFirstTokenMs` are optional transcript metadata persisted in message
+metadata, so protocol v11 and storage schema v16 remain unchanged.
 
 The Settings font picker (ADR 0083) reads installed system font families
 through one Electron-only allowlisted channel:

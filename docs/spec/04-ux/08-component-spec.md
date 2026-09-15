@@ -1705,6 +1705,49 @@ Single message render — either user (plaintext) or assistant (markdown streami
   the panel adds one muted summary line for the compaction count and newest
   summary's estimated token cost; the transcript still shows one row per
   compaction (D203).
+  Once the turn is no longer streaming, the same meta row keeps the model
+  badge and adds this reply's compact readout line: the usage segment (an icon
+  with `Usage <total> tok`), the elapsed segment (an icon with
+  `Elapsed <duration>`), and the local completion time, as three plain
+  segments separated by a wider gap than the `·` inside a segment. `Elapsed`
+  is the locale-formatted duration in hours, minutes, and seconds from the
+  prompt's send time to the completion time, and the prompt's own local send
+  time renders under the sent message, not in this row. The completion time is
+  the local time the final assistant stream ended, a thinking-only stream
+  included. First-token latency is the
+  wait from the provider request to the first streamed token of the turn's
+  first streamed reply — reasoning that streamed without text counts, so a
+  later post-tool answer's latency never stands in for it — so model latency
+  excludes local turn setup; it carries no segment of its own and shows up
+  only as a card row. The usage and the
+  elapsed segments are both triggers, and each opens its own card on click
+  alone — hovering a readout is not a request for its breakdown, the pointer
+  has to be free to select the card's text, and a second click on that same
+  trigger or Escape or a click outside closes it — while the
+  completion clock stays plain text. The two cards are independent: opening
+  one never opens the other, each is portaled on its own, and each carries its
+  own copy control that copies that card's rows. The usage card is titled with
+  this turn's usage, its heading shows the turn total on its right, and its
+  rows list the provider and model, the cache-hit rate, uncached input, cache
+  read, cache write when the turn wrote any, output, and the generation rate.
+  The timing card has its own title, no
+  heading total, and two rows — the elapsed duration (`Elapsed`) and the
+  first-token latency (`First token`). Output appends the reasoning tokens
+  inline when the provider reported any. The token rows show bare counts
+  because the unit rides the heading and the inline usage segment, and the
+  total is uncached input + cache read + cache write +
+  output summed over every reply in the turn — one formula shared with the
+  summary's session row, so a turn reads the same total in both places (D445).
+  The generation rate uses the
+  exact provider count when the whole turn reported usage, and the runtime's
+  summarized count when part of the turn's output is estimated, since a partial
+  provider count would divide into too low a rate. A turn that ended with no
+  usage bucket at all still renders its usage segment and card, with that
+  summarized count as the turn total, so its estimated rate stays reachable. A
+  value that is unknown is omitted on its
+  own, nothing of this readout renders while the reply is still streaming, and
+  the composer context inspector remains the detailed usage surface
+  (D443, D444).
 - Gap: 12px vertical padding between consecutive message rows (denser than
   consumer chat, closer to WorkBuddy task transcript); assistant turns add a
   little extra bottom air so a completed answer separates from the next prompt
