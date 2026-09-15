@@ -1676,9 +1676,22 @@ Single message render — either user (plaintext) or assistant (markdown streami
   Clicking the trigger (or activating it from the keyboard) toggles a
   non-modal panel whose heading follows the same display-mode figure,
   followed by used/window counts and two
-  unboxed turn/speed summary values. Model usage is compressed into one
-  inline summary row that retains exact last-request
-  input/output/cache/reasoning values
+  unboxed turn/speed summary values. Above the provider row, one summary row
+  (labelled `Session`) shows the session's completed-turn count, total, input,
+  output, and cache read with its cache hit rate, aggregated by the additive
+  `session.getUsage` host method rather than summed in the renderer — the
+  transcript is a paged window, so the renderer cannot reconstruct a session
+  total (D435). The aggregate counts only `status = 'completed'` turns and
+  defines the session total as input + output + cache read + cache write — the
+  same four fields the reply's own usage card adds up; the
+  row appears only once the session has at least one completed turn, and stays
+  absent while that aggregate is still loading, when the read fails, or while
+  the session on screen has not been read yet: the aggregate is bound to the
+  session it was read for, so switching to a running session never shows the
+  previous session's numbers. Model
+  usage is compressed into one inline summary row that retains exact
+  last-request input/output/cache/reasoning values and the provider-reported
+  cache hit rate when available. Tool usage is
   and the provider-reported cache hit rate when available. Tool usage is
   compressed into one aggregate row showing tool types, calls, and estimated
   tokens; per-tool rows, share bars, source badges, and the explanatory

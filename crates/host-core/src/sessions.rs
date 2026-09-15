@@ -3300,6 +3300,66 @@ impl UsageBucketAcc {
     }
 }
 
+/// Token counters a provider reported for one finished turn, parsed out of the
+/// turn's `usage_json`. An absent or malformed payload counts as zero.
+fn usage_json_tokens(usage_json: Option<&str>) -> (i64, i64, i64) {
+    let parsed = usage_json.and_then(|s| serde_json::from_str::<Value>(s).ok());
+    let field = |key: &str| {
+        parsed
+            .as_ref()
+            .and_then(|u| u.get(key))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0)
+    };
+    (
+        field("cacheReadTokens"),
+        field("cacheWriteTokens"),
+        field("reasoningTokens"),
+    )
+}
+
+/// Token totals for one session's completed turns (D445).
+pub fn get_session_usage(db: &Database, session_id: &str) -> Result<Value> {
+    let mut stmt = db.conn().prepare_cached(
+        "SELECT input_tokens, output_tokens, usage_json
+         FROM turns
+         WHERE session_id = ?1 AND status = 'completed'",
+    )?;
+
+    let rows = stmt.query_map(params![session_id], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, Option<String>>(2)?,
+        ))
+    })?;
+
+    let mut totals = UsageBucketAcc::default();
+    for row in rows {
+        let (input_tokens, output_tokens, usage_json) = row?;
+        let (cache_read, cache_write, reasoning) = usage_json_tokens(usage_json.as_deref());
+        // The bucket timestamp carries no meaning for a session-wide sum.
+        totals.add(
+            input_tokens,
+            output_tokens,
+            cache_read,
+            cache_write,
+            reasoning,
+            0,
+        );
+    }
+
+    Ok(json!({
+        "inputTokens": totals.input,
+        "outputTokens": totals.output,
+        "totalTokens": totals.total_tokens(),
+        "cacheReadTokens": totals.cache_read,
+        "cacheWriteTokens": totals.cache_write,
+        "reasoningTokens": totals.reasoning,
+        "turnCount": totals.turns,
+    }))
+}
+
 pub fn get_token_usage_history(
     db: &Database,
     start_date: Option<i64>,
@@ -3342,24 +3402,7 @@ pub fn get_token_usage_history(
         total_input += input_tokens;
         total_output += output_tokens;
 
-        let parsed_usage = usage_json
-            .as_deref()
-            .and_then(|s| serde_json::from_str::<Value>(s).ok());
-        let cache_read = parsed_usage
-            .as_ref()
-            .and_then(|u| u.get("cacheReadTokens"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let cache_write = parsed_usage
-            .as_ref()
-            .and_then(|u| u.get("cacheWriteTokens"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let reasoning = parsed_usage
-            .as_ref()
-            .and_then(|u| u.get("reasoningTokens"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
+        let (cache_read, cache_write, reasoning) = usage_json_tokens(usage_json.as_deref());
         total_cache_read += cache_read;
         total_cache_write += cache_write;
         total_reasoning += reasoning;
@@ -5977,5 +6020,62 @@ mod tests {
                 .as_i64(),
             Some(0)
         );
+    }
+
+    #[test]
+    fn session_usage_totals_are_scoped_to_one_session() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, None).unwrap();
+        let other = create_session(&db, None, None, None, None, None).unwrap();
+        let usage = json!({
+            "inputTokens": 100,
+            "outputTokens": 50,
+            "cacheReadTokens": 40,
+            "cacheWriteTokens": 10,
+            "reasoningTokens": 5
+        });
+
+        for _ in 0..2 {
+            let turn = begin_turn(&db, &session.id, None, None).unwrap();
+            end_turn_settling(&db, &turn, "completed", None, Some(&usage), false, false).unwrap();
+        }
+        // A completed turn that reported no usage still counts as a turn.
+        let bare = begin_turn(&db, &session.id, None, None).unwrap();
+        end_turn_settling(&db, &bare, "completed", None, None, false, false).unwrap();
+        // Turns that never completed do not count.
+        let aborted = begin_turn(&db, &session.id, None, None).unwrap();
+        end_turn_settling(&db, &aborted, "aborted", None, Some(&usage), false, false).unwrap();
+        // Another session's completed turn must not leak into the totals.
+        let foreign = begin_turn(&db, &other.id, None, None).unwrap();
+        end_turn_settling(&db, &foreign, "completed", None, Some(&usage), false, false).unwrap();
+
+        let totals = get_session_usage(&db, &session.id).unwrap();
+        assert_eq!(totals["inputTokens"].as_i64(), Some(200));
+        assert_eq!(totals["outputTokens"].as_i64(), Some(100));
+        assert_eq!(totals["cacheReadTokens"].as_i64(), Some(80));
+        assert_eq!(totals["cacheWriteTokens"].as_i64(), Some(20));
+        assert_eq!(totals["reasoningTokens"].as_i64(), Some(10));
+        // totalTokens = input + output + cache read + cache write.
+        assert_eq!(totals["totalTokens"].as_i64(), Some(400));
+        assert_eq!(totals["turnCount"].as_i64(), Some(3));
+
+        let foreign_totals = get_session_usage(&db, &other.id).unwrap();
+        assert_eq!(foreign_totals["turnCount"].as_i64(), Some(1));
+        assert_eq!(foreign_totals["totalTokens"].as_i64(), Some(200));
+
+        // A session without completed turns reports the zeroed shape.
+        let empty = create_session(&db, None, None, None, None, None).unwrap();
+        let empty_totals = get_session_usage(&db, &empty.id).unwrap();
+        for key in [
+            "inputTokens",
+            "outputTokens",
+            "totalTokens",
+            "cacheReadTokens",
+            "cacheWriteTokens",
+            "reasoningTokens",
+            "turnCount",
+        ] {
+            assert_eq!(empty_totals[key].as_i64(), Some(0), "{key}");
+        }
     }
 }

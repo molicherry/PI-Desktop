@@ -6066,3 +6066,24 @@ that was sitting at the bottom — including after the turn had finished.
   toasts they open, which are portaled to `document.body`, also move to the top
   layer, because top-layer content paints above them and makes them unusable; an
   attempt was withdrawn for exactly that reason.
+
+## 2026-09-15 — Composer session usage totals (D445)
+
+- The composer context inspector's summary now leads with a whole-session row
+  above the provider row: the completed-turn count, the session total, input,
+  output, cache read, and the cache hit rate, labelled `Session`. It is a
+  session-wide aggregate, not the newest turn's own usage, which the provider
+  row below it still shows.
+- The renderer cannot compute that sum itself: the transcript is a paged
+  window, so it never holds every message. The row therefore reads one host
+  aggregate, `session.getUsage({ sessionId }) -> SessionUsageTotals` (exposed
+  as `pi-desktop/session/getUsage`), that sums the session's `status =
+  'completed'` turns and defines the session total as input + output + cache
+  read + cache write.
+- This is an additive read-only RPC over the existing turns table: no
+  protocol-version change, no storage-schema change, and no migration, by the
+  same precedent as `stats.getTokenUsageHistory`. No ADR is required.
+- Per-turn usage is unchanged: each reply keeps its own readout line and card
+  in the transcript, so the new row adds a session total without moving
+  per-turn detail out of the transcript.
+- Decision D445. See E2E-CHAT-composer-session-usage-totals.

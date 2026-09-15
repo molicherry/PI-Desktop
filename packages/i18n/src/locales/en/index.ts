@@ -326,6 +326,11 @@ export const en = {
     durationSeconds: "{{count}}s",
     usageThroughputUnavailable: "—",
     usageProviderUsage: "Provider usage",
+    /* The whole session's completed turns, above the newest turn's own row. */
+    usageSessionLabel: "Session",
+    usageSessionTotal: "Total",
+    usageTurns: "{{count}} turns",
+    usageExact: "reported",
     usageInput: "Input",
     usageOutput: "Output",
     usageCacheRead: "Cache read",

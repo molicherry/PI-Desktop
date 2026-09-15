@@ -377,6 +377,19 @@ test("assistant context inspector keeps a compact summary and retry action wired
   assert.match(inspectorSource, /chat\.usageThroughput/);
   assert.match(inspectorSource, /calculateCacheRate/);
   assert.match(inspectorSource, /chat\.usageCacheRate/);
+  // The panel's whole-session row, from the host aggregate rather than a
+  // renderer sum (D445): the transcript window is paged.
+  assert.match(inspectorSource, /sessionUsage/);
+  assert.match(inspectorSource, /chat\.usageSessionLabel/);
+  assert.match(inspectorSource, /chat\.usageTurns/);
+  assert.match(inspectorSource, /sessionUsage\.turnCount > 0/);
+  // The composer fetches the session aggregate from the host and hands it to
+  // the panel, without summing messages itself.
+  assert.match(composerSource, /\.getSessionUsage\(activeSessionId\)/);
+  assert.match(composerSource, /if \(!activeSessionId \|\| isRunning\) return;/);
+  assert.match(composerSource, /\.\.\.composerContextUsage, sessionUsage/);
+  assert.match(inspectorSource, /chat\.usageSessionTotal/);
+  assert.match(inspectorSource, /sessionCacheRate/);
   assert.match(inspectorSource, /contextOccupancyTokens\(usage\)/);
   assert.match(inspectorSource, /usage\.cacheReadTokens/);
   assert.doesNotMatch(inspectorSource, /turnUsage\.cacheReadTokens/);

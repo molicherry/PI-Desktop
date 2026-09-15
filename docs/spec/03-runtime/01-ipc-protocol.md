@@ -921,6 +921,16 @@ type SessionDetail = SessionSummary & {
   /** True when an older page can be requested with session.get. */
   hasMoreBefore?: boolean;
 };
+
+type SessionUsageTotals = {
+ inputTokens: number;
+ outputTokens: number;
+ totalTokens: number;
+ cacheReadTokens: number;
+ cacheWriteTokens: number;
+ reasoningTokens: number;
+ turnCount: number;
+};
 ```
 
 `messageCount` is the host-authoritative count of messages in the current
@@ -991,6 +1001,13 @@ Minimal interface:
   Task `UiMessage`. It is display context outside the physical page, not an
   extra history line. The renderer shares one reading view between ordinary
   paging, search navigation, and subagent details.
+- `session/getUsage({ sessionId }) -> SessionUsageTotals` sums one session's
+  `status = 'completed'` turns into its whole-session token total, exposed to
+  the renderer as `pi-desktop/session/getUsage`; the composer context inspector
+  reads it for its Session row because the renderer's transcript is only a
+  paged window. `totalTokens` is input + output + cache read + cache write.
+  This additive read-only method adds no protocol-version or storage-schema
+  change (D445).
 - `session/search({ query, offset? }) -> SessionSearchPage` forwards to
   `search.sessions`; host-core owns discovery, counts, filtering, and pagination.
 - `session/searchContext(SessionSearchContextRequest) -> SessionSearchContext`
@@ -1096,6 +1113,8 @@ is a runtime estimate from the tool call arguments and result; providers do not
 report per-tool allocation, so the renderer labels these rows as estimates and
 never merges them into the exact provider total. Older peers may omit all of
 these optional fields without breaking the v6 handshake.
+ The panel's newest whole-session row does not derive from either signal: it
+ reads the additive `session/getUsage` aggregate above (D445).
 
 `turn_end.subagentUsage` is the settled subagent total since the previous
 emitted `turn_end` of the same durable turn. Parent `message.usage` stays the
