@@ -13,7 +13,7 @@ type CachedSessionUsage = {
 };
 
 /**
- * The session's own completed-turn token totals (D445).
+ * The session's own completed-turn token totals (D449).
  *
  * The transcript is a paged window, so the renderer cannot sum its way to a
  * session total; the host aggregates the turns table for the whole session

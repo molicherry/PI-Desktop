@@ -378,7 +378,7 @@ test("assistant context inspector keeps a compact summary and retry action wired
   assert.match(inspectorSource, /calculateCacheRate/);
   assert.match(inspectorSource, /chat\.usageCacheRate/);
   // The panel's whole-session row, from the host aggregate rather than a
-  // renderer sum (D445): the transcript window is paged.
+  // renderer sum (D449): the transcript window is paged.
   assert.match(inspectorSource, /sessionUsage/);
   assert.match(inspectorSource, /chat\.usageSessionLabel/);
   assert.match(inspectorSource, /chat\.usageTurns/);

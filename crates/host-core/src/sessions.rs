@@ -3318,7 +3318,7 @@ fn usage_json_tokens(usage_json: Option<&str>) -> (i64, i64, i64) {
     )
 }
 
-/// Token totals for one session's completed turns (D445).
+/// Token totals for one session's completed turns (D449).
 pub fn get_session_usage(db: &Database, session_id: &str) -> Result<Value> {
     let mut stmt = db.conn().prepare_cached(
         "SELECT input_tokens, output_tokens, usage_json

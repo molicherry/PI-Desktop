@@ -59,7 +59,7 @@ export type SessionDetail = SessionSummary & {
   compactions?: ContextCompactionRecord[];
 };
 
-/** Whole-session token totals over the session's completed turns (D445). */
+/** Whole-session token totals over the session's completed turns (D449). */
 export type SessionUsageTotals = {
   inputTokens: number;
   outputTokens: number;

@@ -533,7 +533,7 @@ export function assistantTurnResponseDuration(
   return durations.reduce((total, duration) => total + duration, 0);
 }
 
-/** First-token latency measured for the turn's first streamed reply (D443). */
+/** First-token latency measured for the turn's first streamed reply (D447). */
 export function assistantTurnResponseFirstToken(
   entry: AssistantTurnEntry,
 ): number | undefined {

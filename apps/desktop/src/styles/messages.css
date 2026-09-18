@@ -1054,7 +1054,7 @@
 
 /* The per-reply readout: one muted line of segments that opens a card with the
    full breakdown. Tabular figures stop the clock times and token counts from
-   reflowing as they change (D443, D444). */
+   reflowing as they change (D447, D448). */
 .reply-usage-line {
   display: inline-flex;
   min-width: 0;
@@ -1189,7 +1189,7 @@
   text-align: right;
   word-break: break-word;
 }
-/* The prompt's send time sits under the prompt, not under the answer (D443). */
+/* The prompt's send time sits under the prompt, not under the answer (D447). */
 .message-sent-at {
   color: var(--ds-text-muted);
   font-size: var(--text-xs);

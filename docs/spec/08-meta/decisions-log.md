@@ -5292,7 +5292,7 @@ Validation contract: E2E-SIDEBAR-global-pinned-conversations.
   with no error, no warning, and no rewrite of the user's file. A definition
   that relied on the cap therefore loses it silently.
 
-## 2026-09-15 — Per-reply timing readout in the transcript footer (D443)
+## 2026-09-15 — Per-reply timing readout in the transcript footer (D447)
 
 - A completed assistant reply's meta row keeps its model badge and adds one
   compact readout line: the turn's usage total, `Elapsed <duration>` with the
@@ -5323,9 +5323,9 @@ Validation contract: E2E-SIDEBAR-global-pinned-conversations.
   to `responseDurationMs`, so protocol v11 and storage schema v16 remain
   unchanged and no ADR is required, by the same precedent D184 set for
   `responseDurationMs`.
-- Decision D443. See E2E-CHAT-per-reply-timing-readout.
+- Decision D447. See E2E-CHAT-per-reply-timing-readout.
 
-## 2026-09-15 — Per-reply usage and speed readout in the transcript footer (D444)
+## 2026-09-15 — Per-reply usage and speed readout in the transcript footer (D448)
 
 - The same meta row carries this turn's cost and how fast it ran as one compact
   readout line of three segments — the turn total, a locale-formatted `Elapsed`
@@ -5347,7 +5347,7 @@ Validation contract: E2E-SIDEBAR-global-pinned-conversations.
   those token rows are
   bare counts. The total is uncached input + cache read + cache write + output
   summed over every reply in the turn — the same four fields the composer's
-  session row adds up (D445), so one turn reads the same total on both
+  session row adds up (D449), so one turn reads the same total on both
   surfaces, and the listed rows add up to the heading in both places. The line
   and the cards are grouped text, not
   one chip per value.
@@ -5370,7 +5370,7 @@ Validation contract: E2E-SIDEBAR-global-pinned-conversations.
   `chat.timingFirstTokenLabel`, `chat.replyUsage*`,
   `chat.usageUncachedInput`, `chat.tokenUnit`, and
   `chat.duration*` keys to every shipped catalog, replacing `chat.timingTotal`.
-- Decision D444. See E2E-CHAT-per-reply-usage-readout.
+- Decision D448. See E2E-CHAT-per-reply-usage-readout.
 - The `truncated` subagent status leaves the shared run-status union, the
   renderer outcome union, the `chat.subagentStatus` catalog entry in every
   locale, and the delegation topology's warnings count. `timed_out` stays in
@@ -6067,7 +6067,7 @@ that was sitting at the bottom — including after the turn had finished.
   layer, because top-layer content paints above them and makes them unusable; an
   attempt was withdrawn for exactly that reason.
 
-## 2026-09-15 — Composer session usage totals (D445)
+## 2026-09-15 — Composer session usage totals (D449)
 
 - The composer context inspector's summary now leads with a whole-session row
   above the provider row: the completed-turn count, the session total, input,
@@ -6086,4 +6086,4 @@ that was sitting at the bottom — including after the turn had finished.
 - Per-turn usage is unchanged: each reply keeps its own readout line and card
   in the transcript, so the new row adds a session total without moving
   per-turn detail out of the transcript.
-- Decision D445. See E2E-CHAT-composer-session-usage-totals.
+- Decision D449. See E2E-CHAT-composer-session-usage-totals.

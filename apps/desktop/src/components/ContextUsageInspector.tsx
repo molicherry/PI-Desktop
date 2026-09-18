@@ -50,7 +50,7 @@ export function ContextUsageInspector({
   responseDurationMs?: number;
   responseOutputTokens?: number;
   responseOutputEstimated?: boolean;
-  /** Totals over every completed turn of this session (D445). */
+  /** Totals over every completed turn of this session (D449). */
   sessionUsage?: SessionUsageTotals;
 }) {
   const { t } = useTranslation();
@@ -87,7 +87,7 @@ export function ContextUsageInspector({
     usage.cacheReadTokens,
   );
   // The session row aggregates the host's completed-turn totals, so it stays
-  // right however far back the transcript window has been paged (D445).
+  // right however far back the transcript window has been paged (D449).
   const sessionCacheRate =
     sessionUsage === undefined
       ? undefined

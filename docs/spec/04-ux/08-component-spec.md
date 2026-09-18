@@ -1750,7 +1750,7 @@ Single message render — either user (plaintext) or assistant (markdown streami
   because the unit rides the heading and the inline usage segment, and the
   total is uncached input + cache read + cache write +
   output summed over every reply in the turn — one formula shared with the
-  summary's session row, so a turn reads the same total in both places (D445).
+  summary's session row, so a turn reads the same total in both places (D449).
   The generation rate uses the
   exact provider count when the whole turn reported usage, and the runtime's
   summarized count when part of the turn's output is estimated, since a partial
@@ -1760,7 +1760,7 @@ Single message render — either user (plaintext) or assistant (markdown streami
   value that is unknown is omitted on its
   own, nothing of this readout renders while the reply is still streaming, and
   the composer context inspector remains the detailed usage surface
-  (D443, D444).
+  (D447, D448).
 - Gap: 12px vertical padding between consecutive message rows (denser than
   consumer chat, closer to WorkBuddy task transcript); assistant turns add a
   little extra bottom air so a completed answer separates from the next prompt

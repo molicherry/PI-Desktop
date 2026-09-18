@@ -1007,7 +1007,7 @@ Minimal interface:
   reads it for its Session row because the renderer's transcript is only a
   paged window. `totalTokens` is input + output + cache read + cache write.
   This additive read-only method adds no protocol-version or storage-schema
-  change (D445).
+  change (D449).
 - `session/search({ query, offset? }) -> SessionSearchPage` forwards to
   `search.sessions`; host-core owns discovery, counts, filtering, and pagination.
 - `session/searchContext(SessionSearchContextRequest) -> SessionSearchContext`
@@ -1114,7 +1114,7 @@ report per-tool allocation, so the renderer labels these rows as estimates and
 never merges them into the exact provider total. Older peers may omit all of
 these optional fields without breaking the v6 handshake.
  The panel's newest whole-session row does not derive from either signal: it
- reads the additive `session/getUsage` aggregate above (D445).
+ reads the additive `session/getUsage` aggregate above (D449).
 
 `turn_end.subagentUsage` is the settled subagent total since the previous
 emitted `turn_end` of the same durable turn. Parent `message.usage` stays the

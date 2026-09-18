@@ -56,7 +56,7 @@ type ReadoutRow = { key: string; label: string; value: string };
 /**
  * One segment of the readout plus the card it opens.
  *
- * Each segment owns its own card (D443): how much the turn cost and how long it
+ * Each segment owns its own card (D447): how much the turn cost and how long it
  * took answer different questions, so a click shows only the one that was
  * asked about. The card is portaled and placed in viewport coordinates for the
  * same reason the composer inspector is (D357) — the transcript scroller would
@@ -85,7 +85,7 @@ function ReadoutPopover({
   const cardId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  // The card opens on click alone (D443): hovering it used to open on the way
+  // The card opens on click alone (D447): hovering it used to open on the way
   // to selecting its text, which is the one thing a reader wants to do with it.
   const { copied, copy } = useCopy();
 
@@ -260,7 +260,7 @@ export type ReplyUsageProps = {
 
 /**
  * The per-reply readout: one compact line whose usage and elapsed segments each
- * open their own card (D443, D444).
+ * open their own card (D447, D448).
  */
 export function ReplyUsage({
   modelId,
@@ -280,14 +280,14 @@ export function ReplyUsage({
   const reasoningTokens = usage?.reasoningTokens ?? 0;
   // What the turn actually cost: the uncached prompt, the cache it read and
   // wrote, and what the model wrote back — the same four fields the composer's
-  // session row sums (D445).
+  // session row sums (D449).
   const reportedTokens = usage
     ? inputTokens + (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0) + outputTokens
     : undefined;
   // A stopped stream can end without any usage bucket, carrying only the
   // runtime's estimate of what it did print. That summary is then the turn's
   // whole total, so the segment and its card still render and the rate row
-  // stays reachable (D444).
+  // stays reachable (D448).
   const estimatedTokens =
     responseOutputTokens !== undefined && responseOutputTokens > 0
       ? responseOutputTokens
